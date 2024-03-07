@@ -1,6 +1,17 @@
 import argparse
 import os
 
+import random
+import torch
+import numpy as np
+
+def seed_fix(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    
+
 def parse_args():
     parser = argparse.ArgumentParser(description="various_attention")
 
@@ -24,6 +35,9 @@ def parse_args():
     )
     parser.add_argument(
         "--learning_rate", type=float, default=1e-4, required=False
+    )
+    parser.add_argument(
+        "--seed", type=int, default=1234, required=False
     )
     
     #optimizer & scheduler detail

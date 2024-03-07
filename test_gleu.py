@@ -2,7 +2,7 @@ from datasets import load_dataset, load_metric
 from transformers import AdamW, get_scheduler, DebertaV2Tokenizer
 
 from Debertav2_transformers import DebertaV2ForMaskedLM, DebertaV2Config, DebertaV2ForSequenceClassification
-from utils import parse_args, tf_make_result_path
+from utils import parse_args, tf_make_result_path, seed_fix
 
 import torch
 from torch.utils.data import DataLoader
@@ -42,6 +42,7 @@ task_to_keys = {
 }
 
 args = parse_args()
+seed_fix(args.seed)
 server_env = argparse.Namespace(**json.load(open("server_envs.json","r")))
 device = "cuda:"+str(args.gpu)
 
@@ -147,6 +148,7 @@ for E in range(1, args.epoch+1):
         optimizer.step()
         optimizer.zero_grad()
         scheduler.step()
+        batches.set_postfix(loss = out.loss)
 
     print("train_loss = {}".format(sum(losses)/len(losses)))
     

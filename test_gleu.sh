@@ -4,13 +4,23 @@ gpu=1
 task=mrpc
 LINEAR_NUM=(4)
 
+# python -u test_gleu.py \
+#     --result_path deberta_no_schedulr_${lr}_${ws} \
+#     --glue_task $task \
+#     --gpu $gpu \
+#     --head_indi \
+#     --init_type unit \
+#     --dev
+
 for lr in 1.5e-5 2e-5 2.5e-5 3e-5; do
     for ws in 50 500; do
         python -u test_gleu.py \
-            --result_path deberta_10_${lr}_${ws} \
+            --result_path deberta_${lr}_${ws} \
             --glue_task $task \
             --gpu $gpu \
             --no_add_linear \
+            --learning_rate $lr \
+            --warmup_step $ws
 
         # python -u test_gleu.py \
         #     --result_path deberta_${lr}_${ws} \
