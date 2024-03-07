@@ -130,69 +130,68 @@ if not args.dev:
 optimizer = AdamW(model.parameters(), lr=args.learning_rate, betas=[args.beta1,args.beta2], weight_decay=args.weight_decay, eps=args.eps)
 scheduler = get_scheduler("linear", optimizer, args.warmup_steps, len(train_dataloader)* args.epoch)
 
-with torch.autograd.set_detect_anomaly(True):
-    for E in range(1, args.epoch+1):
-        model.train()
+for E in range(1, args.epoch+1):
+    model.train()
+    
+    losses = []
+    for batches in tqdm(train_dataloader):
+        for idx in batches.keys():
+            batches[idx] = batches[idx].to(device)
         
-        losses = []
-        for batches in tqdm(train_dataloader):
+        out = model(**batches)
+        
+        out.loss.backward()
+        losses.append(out.loss.item())
+        
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        optimizer.step()
+        optimizer.zero_grad()
+        scheduler.step()
+
+    print("train_loss = {}".format(sum(losses)/len(losses)))
+    
+    model.eval()
+    losses = []
+    with torch.no_grad():
+        for batches in tqdm(val_dataloader):
             for idx in batches.keys():
                 batches[idx] = batches[idx].to(device)
             
             out = model(**batches)
-            
-            out.loss.backward()
+
             losses.append(out.loss.item())
+            metric.add_batch(predictions=torch.argmax(out.logits, dim=-1), references=batches["labels"])
             
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            optimizer.step()
-            optimizer.zero_grad()
-            scheduler.step()
+        final_score = metric.compute()
 
-        print("train_loss = {}".format(sum(losses)/len(losses)))
+        print("dev_loss = {}".format(sum(losses)/len(losses)))
+        print("dev", final_score)
         
-        model.eval()
-        losses = []
-        with torch.no_grad():
-            for batches in tqdm(val_dataloader):
-                for idx in batches.keys():
-                    batches[idx] = batches[idx].to(device)
-                
-                out = model(**batches)
-
-                losses.append(out.loss.item())
-                metric.add_batch(predictions=torch.argmax(out.logits, dim=-1), references=batches["labels"])
-                
-            final_score = metric.compute()
-
-            print("dev_loss = {}".format(sum(losses)/len(losses)))
-            print("dev", final_score)
-            
-            change_score_name = dict()
-            for i,j in final_score.items():
-                change_score_name["{}_dev_{}".format(task, i)] = j
-            # change_score_name["{}_dev_{}".format(task, "acc")] = sum(pred_list == label_list)/pred_list.size()[0]
-            change_score_name["epoch"] = E+1
-            
-            
-            for batches in tqdm(test_dataloader):
-                for idx in batches.keys():
-                    batches[idx] = batches[idx].to(device)
-                
-                out = model(**batches)
-
-                losses.append(out.loss.item())
-                metric.add_batch(predictions=torch.argmax(out.logits, dim=-1), references=batches["labels"])
-                
-            final_score = metric.compute()
-        
-        
-        
-        print("test", final_score)
+        change_score_name = dict()
         for i,j in final_score.items():
-            change_score_name["{}_test_{}".format(task, i)] = j
-        # change_score_name["{}_test_{}".format(task, "acc")] = sum(pred_list == label_list)/pred_list.size()[0]
+            change_score_name["{}_dev_{}".format(task, i)] = j
+        # change_score_name["{}_dev_{}".format(task, "acc")] = sum(pred_list == label_list)/pred_list.size()[0]
         change_score_name["epoch"] = E+1
         
-        if not args.dev:
-            wandb.log(change_score_name)
+        
+        for batches in tqdm(test_dataloader):
+            for idx in batches.keys():
+                batches[idx] = batches[idx].to(device)
+            
+            out = model(**batches)
+
+            losses.append(out.loss.item())
+            metric.add_batch(predictions=torch.argmax(out.logits, dim=-1), references=batches["labels"])
+            
+        final_score = metric.compute()
+    
+    
+    
+    print("test", final_score)
+    for i,j in final_score.items():
+        change_score_name["{}_test_{}".format(task, i)] = j
+    # change_score_name["{}_test_{}".format(task, "acc")] = sum(pred_list == label_list)/pred_list.size()[0]
+    change_score_name["epoch"] = E+1
+    
+    if not args.dev:
+        wandb.log(change_score_name)
