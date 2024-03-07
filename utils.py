@@ -31,7 +31,7 @@ def parse_args():
         "--epoch", type=int, default=15, required=False
     )
     parser.add_argument(
-        "--batch_size", type=int, default=32, required=False
+        "--batch_size", type=int, default=16, required=False
     )
     parser.add_argument(
         "--learning_rate", type=float, default=1e-4, required=False
