@@ -89,7 +89,7 @@ def custom_collate_fn(batches):
     texts, truncation=True, max_length=tokenizer.model_max_length, return_tensors="pt", padding=True
     )
     
-    tokenized_inputs["labels"] = torch.LongTensor(labels)
+    tokenized_inputs["labels"] = torch.FloatTensor(labels)
     
     return tokenized_inputs
     
