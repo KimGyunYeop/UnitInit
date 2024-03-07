@@ -135,7 +135,8 @@ for E in range(1, args.epoch+1):
     model.train()
     
     losses = []
-    for batches in tqdm(train_dataloader):
+    dl = tqdm(train_dataloader)
+    for batches in dl:
         for idx in batches.keys():
             batches[idx] = batches[idx].to(device)
         
@@ -148,7 +149,7 @@ for E in range(1, args.epoch+1):
         optimizer.step()
         optimizer.zero_grad()
         scheduler.step()
-        batches.set_postfix(loss = out.loss)
+        dl.set_description("loss="+str(out.loss.item()))
 
     print("train_loss = {}".format(sum(losses)/len(losses)))
     

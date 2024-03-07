@@ -1,6 +1,6 @@
 # /bin/bash
 
-gpu=1
+gpu=3
 task=mrpc
 LINEAR_NUM=(4)
 
@@ -14,27 +14,31 @@ LINEAR_NUM=(4)
 
 for lr in 1.5e-5 2e-5 2.5e-5 3e-5; do
     for ws in 50 500; do
+        # python -u test_gleu.py \
+        #     --result_path deberta_${lr}_${ws} \
+        #     --glue_task $task \
+        #     --gpu $gpu \
+        #     --no_add_linear \
+        #     --learning_rate $lr \
+        #     --warmup_step $ws
+
+        # python -u test_gleu.py \
+        #     --result_path deberta_${lr}_${ws} \
+        #     --glue_task $task \
+        #     --gpu $gpu \
+        #     --head_indi \
+        #     --init_type unit \
+        #     --learning_rate $lr \
+        #     --warmup_step $ws
+
         python -u test_gleu.py \
             --result_path deberta_${lr}_${ws} \
             --glue_task $task \
             --gpu $gpu \
-            --no_add_linear \
+            --head_indi \
+            --init_type he \
             --learning_rate $lr \
             --warmup_step $ws
-
-        # python -u test_gleu.py \
-        #     --result_path deberta_${lr}_${ws} \
-        #     --glue_task $task \
-        #     --gpu $gpu \
-        #     --head_indi \
-        #     --init_type unit
-
-        # python -u test_gleu.py \
-        #     --result_path deberta_${lr}_${ws} \
-        #     --glue_task $task \
-        #     --gpu $gpu \
-        #     --head_indi \
-        #     --init_type he
     done
 done
 
