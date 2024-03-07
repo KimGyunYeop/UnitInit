@@ -152,6 +152,8 @@ for E in range(1, args.epoch+1):
     
     model.eval()
     losses = []
+    best_dev_score = 0
+    best_test_score = 0
     with torch.no_grad():
         for batches in tqdm(val_dataloader):
             for idx in batches.keys():

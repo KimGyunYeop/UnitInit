@@ -1,3 +1,5 @@
 server_envs.json
 
 wandb/*
+
+*.sh
