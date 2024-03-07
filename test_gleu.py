@@ -120,7 +120,7 @@ print(model)
 
 args.model_config = model.config
 if not args.dev:
-    wandb.init(project="unit_init_glue", entity="bubbletea506",name="{}_{}".format(args.result_path, task), reinit=True)
+    wandb.init(project="unit_init_glue", entity="isnlp_lab",name="{}_{}".format(args.result_path, task), reinit=True)
     for i,_ in tmp_matric.items():
         wandb.define_metric("{}_dev_{}".format(task,i), summary="max")
         wandb.define_metric("{}_test_{}".format(task,i), summary="max")
