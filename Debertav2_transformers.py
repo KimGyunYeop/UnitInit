@@ -768,7 +768,8 @@ class UnitInitLayerBeforeDotproduct(nn.Module):
         
         list_x = []
         for i in range(self.num_heads):
-            list_x.append(self.act_f(self.added_layers[i](x[:,:,i,:])).unsqueeze(-2))
+            # list_x.append(self.act_f(self.added_layers[i](x[:,:,i,:])).unsqueeze(-2))
+            list_x.append(self.added_layers[i](x[:,:,i,:]).unsqueeze(-2))
         x = torch.cat(list_x, dim=-2)
         
         x = x.view(ori_x_shape)

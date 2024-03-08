@@ -1,9 +1,11 @@
 # /bin/bash
 
-gpu=3
+gpu=1
 # TASK=(cola sst2 qqp mnli rte)
-TASK=(stsb wnli)
+TASK=(mrpc stsb qnli wnli)
+# TASK=(stsb)
 LINEAR_NUM=(4)
+linear_num=12
 
 # python -u test_gleu.py \
 #     --result_path deberta_no_schedulr_${lr}_${ws} \
@@ -26,7 +28,7 @@ for task in ${TASK[@]}; do
 
 
             # python -u test_gleu.py \
-            #     --result_path deberta_${lr}_${ws} \
+            #     --result_path deberta_noact_${lr}_${ws} \
             #     --glue_task $task \
             #     --gpu $gpu \
             #     --head_indi \
@@ -34,24 +36,24 @@ for task in ${TASK[@]}; do
             #     --learning_rate $lr \
             #     --warmup_step $ws
 
-            python -u test_gleu.py \
-                --result_path deberta_${lr}_${ws} \
-                --glue_task $task \
-                --gpu $gpu \
-                --head_indi \
-                --init_type he \
-                --learning_rate $lr \
-                --warmup_step $ws
-            
             # python -u test_gleu.py \
-            #     --result_path deberta_${lr}_${ws} \
+            #     --result_path deberta_noact_${lr}_${ws} \
             #     --glue_task $task \
             #     --gpu $gpu \
             #     --head_indi \
-            #     --init_type unit \
-            #     --add_linear_num 12 \
+            #     --init_type he \
             #     --learning_rate $lr \
             #     --warmup_step $ws
+            
+            python -u test_gleu.py \
+                --result_path deberta_noact_${lr}_${ws} \
+                --glue_task $task \
+                --gpu $gpu \
+                --head_indi \
+                --init_type unit \
+                --add_linear_num $linear_num \
+                --learning_rate $lr \
+                --warmup_step $ws
                 
             # python -u test_gleu.py \
             #     --result_path deberta_${lr}_${ws} \

@@ -161,11 +161,14 @@ for E in range(1, args.epoch+1):
         for batches in tqdm(val_dataloader):
             for idx in batches.keys():
                 batches[idx] = batches[idx].to(device)
-            
+                
             out = model(**batches)
-
+            
             losses.append(out.loss.item())
-            metric.add_batch(predictions=torch.argmax(out.logits, dim=-1), references=batches["labels"])
+            if num_labels == 1:
+                metric.add_batch(predictions=out.logits, references=batches["labels"])
+            else:   
+                metric.add_batch(predictions=torch.argmax(out.logits, dim=-1), references=batches["labels"])
             
         final_score = metric.compute()
 
@@ -186,7 +189,10 @@ for E in range(1, args.epoch+1):
             out = model(**batches)
 
             losses.append(out.loss.item())
-            metric.add_batch(predictions=torch.argmax(out.logits, dim=-1), references=batches["labels"])
+            if num_labels == 1:
+                metric.add_batch(predictions=out.logits, references=batches["labels"])
+            else:   
+                metric.add_batch(predictions=torch.argmax(out.logits, dim=-1), references=batches["labels"])
             
         final_score = metric.compute()
     
