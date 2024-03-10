@@ -77,6 +77,9 @@ def parse_args():
     parser.add_argument(
         "--add_position", default="befdot", choices=["befdot", "aftffnn"]
     )
+    parser.add_argument(
+        "--act_type", type=str, default=None
+    )
     
     #glue
     GLUE_TASKS = ["cola", "sst2", "mrpc", "stsb", "qqp", "mnli", "mnli_matched", "mnli_mismatched", "qnli", "rte", "wnli"]
@@ -124,5 +127,11 @@ def tf_make_result_path(args):
     
     if args.head_indi:
         result_path.append("indi")
+        
+    if args.act_type is None:
+        result_path.append("no_act")
+    else:
+        pass
+        
         
     return '_'.join(result_path)
