@@ -111,8 +111,8 @@ if not args.no_add_linear:
         elif args.add_linear_num > 0:
             args.add_linear_layer = range(args.add_linear_num)
         else:
-            args.add_linear_layer = range(model.config.num_hidden_layers - args.add_linear_num, model.config.num_hidden_layers)
-        
+            args.add_linear_layer = range(model.config.num_hidden_layers + args.add_linear_num, model.config.num_hidden_layers)
+    print(args.add_linear_layer)
     model.deberta.add_unit_init_before_dotpro(layer_num=args.add_linear_layer, head_indi=args.head_indi, init_type=args.init_type)
 
 model.to(device)
