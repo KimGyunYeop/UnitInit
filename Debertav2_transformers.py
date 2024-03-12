@@ -738,7 +738,7 @@ def pos_dynamic_expand(pos_index, p2c_att, key_layer):
     return pos_index.expand(p2c_att.size()[:2] + (pos_index.size(-2), key_layer.size(-2)))
 
 class UnitInitLayerBeforeDotproduct(nn.Module):
-    def __init__(self, original_layer, num_heads, head_indi=True, init_type="unit") -> None:
+    def __init__(self, original_layer, num_heads, head_indi=True, init_type="unit", act_type=None) -> None:
         super().__init__()
         
         self.original_layer = original_layer
@@ -749,14 +749,18 @@ class UnitInitLayerBeforeDotproduct(nn.Module):
         
         self.added_layer_dim = self.added_layer_dim // self.num_heads
         if self.head_indi:
-            self.added_layers = [add_unit_init_linear(self.added_layer_dim, self.added_layer_dim, init_type=init_type) for _ in range(self.num_heads)]
+            self.added_layers = [add_unit_init_linear(self.added_layer_dim, self.added_layer_dim, init_type=init_type, act_type=act_type) for _ in range(self.num_heads)]
             
         else:
-            self.added_layers = [add_unit_init_linear(self.added_layer_dim, self.added_layer_dim, init_type=init_type)]
+            self.added_layers = [add_unit_init_linear(self.added_layer_dim, self.added_layer_dim, init_type=init_type, act_type=act_type)]
         
         self.added_layers = nn.ModuleList(self.added_layers)
         
-        self.act_f = nn.GELU()
+        self.act_f = None
+        if act_type == "gelu":
+            self.act_f = nn.GELU()
+        if act_type == "relu":
+            self.act_f = nn.ReLU()
         
         
     def forward(self, x):
@@ -768,8 +772,10 @@ class UnitInitLayerBeforeDotproduct(nn.Module):
         
         list_x = []
         for i in range(self.num_heads):
-            # list_x.append(self.act_f(self.added_layers[i](x[:,:,i,:])).unsqueeze(-2))
-            list_x.append(self.added_layers[i](x[:,:,i,:]).unsqueeze(-2))
+            if self.act_f is None:
+                list_x.append(self.added_layers[i](x[:,:,i,:]).unsqueeze(-2))
+            else:
+                list_x.append(self.act_f(self.added_layers[i](x[:,:,i,:])).unsqueeze(-2))
         x = torch.cat(list_x, dim=-2)
         
         x = x.view(ori_x_shape)
@@ -825,10 +831,10 @@ class DisentangledSelfAttention(nn.Module):
 
         self.dropout = StableDropout(config.attention_probs_dropout_prob)
         
-    def add_unit_init_before_dotpro(self, head_indi=True, init_type="unit"):
-        self.added_query_proj = UnitInitLayerBeforeDotproduct(self.query_proj, num_heads=self.num_attention_heads, head_indi=head_indi, init_type=init_type)
-        self.added_key_proj = UnitInitLayerBeforeDotproduct(self.key_proj, num_heads=self.num_attention_heads, head_indi=head_indi, init_type=init_type)
-        self.added_value_proj = UnitInitLayerBeforeDotproduct(self.value_proj, num_heads=self.num_attention_heads, head_indi=head_indi, init_type=init_type)
+    def add_unit_init_before_dotpro(self, head_indi=True, init_type="unit", act_type=None):
+        self.added_query_proj = UnitInitLayerBeforeDotproduct(self.query_proj, num_heads=self.num_attention_heads, head_indi=head_indi, init_type=init_type, act_type=act_type)
+        self.added_key_proj = UnitInitLayerBeforeDotproduct(self.key_proj, num_heads=self.num_attention_heads, head_indi=head_indi, init_type=init_type, act_type=act_type)
+        self.added_value_proj = UnitInitLayerBeforeDotproduct(self.value_proj, num_heads=self.num_attention_heads, head_indi=head_indi, init_type=init_type, act_type=act_type)
 
     def transpose_for_scores(self, x, attention_heads):
         new_x_shape = x.size()[:-1] + (attention_heads, -1)
@@ -1192,12 +1198,12 @@ class DebertaV2Model(DebertaV2PreTrainedModel):
         # Initialize weights and apply final processing
         self.post_init()
 
-    def add_unit_init_before_dotpro(self, layer_num=None, head_indi=True, init_type="unit"):
+    def add_unit_init_before_dotpro(self, layer_num=None, head_indi=True, init_type="unit", act_type=None):
         if layer_num is None:
             layer_num = range(self.config.num_hidden_layers)
         
         for i in layer_num:
-            self.encoder.layer[i].attention.self.add_unit_init_before_dotpro(head_indi=head_indi, init_type=init_type)
+            self.encoder.layer[i].attention.self.add_unit_init_before_dotpro(head_indi=head_indi, init_type=init_type, act_type=act_type)
         
     
     def get_input_embeddings(self):

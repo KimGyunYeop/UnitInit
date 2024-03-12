@@ -55,6 +55,20 @@ if model_type is None:
 
 args.result_path = tf_make_result_path(args)
 
+api = wandb.Api()
+
+runs = api.runs(path="isnlp_lab/unit_init_glue")
+
+a = set()
+print("check duplicate")
+for r in runs:
+    if r.state == "crashed" or r.state == "failed":
+        continue
+    
+    if r.name == args.result_path:
+        assert "duplicate experiment"
+
+
 model_utils = MODEL_LIST[model_type]
 if args.model_load_path is not None:
     model_utils['model_load_path'] = args.model_load_path
@@ -113,10 +127,11 @@ if not args.no_add_linear:
         else:
             args.add_linear_layer = range(model.config.num_hidden_layers + args.add_linear_num, model.config.num_hidden_layers)
     print(args.add_linear_layer)
-    model.deberta.add_unit_init_before_dotpro(layer_num=args.add_linear_layer, head_indi=args.head_indi, init_type=args.init_type)
+    model.deberta.add_unit_init_before_dotpro(layer_num=args.add_linear_layer, head_indi=args.head_indi, init_type=args.init_type, act_type=args.act_type)
 
 model.to(device)
 print(model)
+
 
 args.model_config = model.config
 if not args.dev:

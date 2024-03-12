@@ -78,7 +78,7 @@ def parse_args():
         "--add_position", default="befdot", choices=["befdot", "aftffnn"]
     )
     parser.add_argument(
-        "--act_type", type=str, default=None
+        "--act_type", type=str, default=None, choices=["midgelu", "gelu", "midrelu"]
     )
     
     #glue
@@ -131,7 +131,7 @@ def tf_make_result_path(args):
     if args.act_type is None:
         result_path.append("no_act")
     else:
-        pass
+        result_path.append(args.act_type)
         
         
     return '_'.join(result_path)
