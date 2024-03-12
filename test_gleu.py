@@ -106,14 +106,20 @@ def custom_collate_fn(batches):
     tokenized_inputs["labels"] = torch.FloatTensor(labels)
     
     return tokenized_inputs
-    
+
 
 train_dataloader = DataLoader(dataset["train"], batch_size=args.batch_size, collate_fn=custom_collate_fn, num_workers=4, shuffle=True)
-try:
-    val_dataloader = DataLoader(dataset["validation"], batch_size=args.batch_size, collate_fn=custom_collate_fn, num_workers=4,)
-except:
-    val_dataloader = DataLoader(dataset["test"], batch_size=args.batch_size, collate_fn=custom_collate_fn, num_workers=4,)
-test_dataloader = DataLoader(dataset["test"], batch_size=args.batch_size, collate_fn=custom_collate_fn, num_workers=4,)
+
+if "mnli" in args.glue_task:
+    val_dataloader = DataLoader(dataset["test_matched"], batch_size=args.batch_size, collate_fn=custom_collate_fn, num_workers=4,)
+    test_dataloader = DataLoader(dataset["test_mismatched"], batch_size=args.batch_size, collate_fn=custom_collate_fn, num_workers=4,)
+    
+else:
+    try:
+        val_dataloader = DataLoader(dataset["validation"], batch_size=args.batch_size, collate_fn=custom_collate_fn, num_workers=4,)
+    except:
+        val_dataloader = DataLoader(dataset["test"], batch_size=args.batch_size, collate_fn=custom_collate_fn, num_workers=4,)
+    test_dataloader = DataLoader(dataset["test"], batch_size=args.batch_size, collate_fn=custom_collate_fn, num_workers=4,)
 
 model = model_utils["model"].from_pretrained(model_utils["model_load_path"], num_labels=num_labels)
 print(model.config)
@@ -210,7 +216,6 @@ for E in range(1, args.epoch+1):
                 metric.add_batch(predictions=torch.argmax(out.logits, dim=-1), references=batches["labels"])
             
         final_score = metric.compute()
-    
     
     
     print("test", final_score)
