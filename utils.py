@@ -39,6 +39,9 @@ def parse_args():
     parser.add_argument(
         "--seed", type=int, default=1234, required=False
     )
+    parser.add_argument(
+        "--accumulate_step", type=int, default=16, required=False
+    )
     
     #optimizer & scheduler detail
     parser.add_argument(
@@ -94,6 +97,9 @@ def parse_args():
     IMAGE_CLASSIFICATION_DATASETS = ["cifar10", "cifar100", "imagenet-1k"]
     parser.add_argument(
         "--image_classification_dataset", type=str, default="cifar10", choices=IMAGE_CLASSIFICATION_DATASETS
+    )
+    parser.add_argument(
+        "--image_size", type=int, default=384
     )
 
     parser.add_argument(

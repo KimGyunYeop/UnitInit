@@ -135,8 +135,10 @@ if not args.no_add_linear:
     print(args.add_linear_layer)
     if args.add_position == "befdot":
         model.deberta.add_unit_init_before_dotpro(layer_num=args.add_linear_layer, head_indi=args.head_indi, init_type=args.init_type, act_type=args.act_type)
-    else args.add_position == "aftffnn1":
-        pass
+    elif args.add_position == "aftffnn1":
+        model.deberta.add_unit_init_after_ffnn1(layer_num=args.add_linear_layer, init_type=args.init_type, act_type=args.act_type)
+    elif args.add_position == "aftffnn2":
+        model.deberta.add_unit_init_after_ffnn2(layer_num=args.add_linear_layer, init_type=args.init_type, act_type=args.act_type)
 
 model.to(device)
 print(model)
