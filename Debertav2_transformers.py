@@ -449,6 +449,34 @@ class DebertaV2Intermediate(nn.Module):
         return hidden_states
 
 
+class UnitInitLayerAfterFFNN(nn.Module):
+    def __init__(self, original_layer, config, init_type="unit", act_type=None) -> None:
+        super().__init__()
+        
+        self.original_layer = original_layer
+
+        self.num_feature = config.hidden_size
+
+        self.added_layer = add_unit_init_linear(self.num_feature, self.num_feature, init_type=init_type, act_type=act_type)
+        
+        self.act_f = None
+        if act_type == "gelu":
+            self.act_f = nn.GELU()
+        if act_type == "relu":
+            self.act_f = nn.ReLU()
+        
+        
+    def forward(self, x):
+        x = self.original_layer(x)
+        
+        if self.act_f is None:
+            x = self.added_layer(x)
+        else:
+            x = self.act_f(self.added_layer(x))
+        
+        return x
+
+
 # Copied from transformers.models.deberta.modeling_deberta.DebertaOutput with DebertaLayerNorm->LayerNorm
 class DebertaV2Output(nn.Module):
     def __init__(self, config):
@@ -465,7 +493,12 @@ class DebertaV2Output(nn.Module):
         hidden_states = self.LayerNorm(hidden_states + input_tensor)
         
         return hidden_states
-
+    
+    def add_unit_init_after_ffnn1(self, init_type="unit", act_type=None):
+        self.dropout = UnitInitLayerAfterFFNN(self.LayerNorm, self.config, init_type=init_type, act_type=act_type)
+    
+    def add_unit_init_after_ffnn2(self, init_type="unit", act_type=None):
+        self.LayerNorm = UnitInitLayerAfterFFNN(self.LayerNorm, self.config, init_type=init_type, act_type=act_type)
 
 # Copied from transformers.models.deberta.modeling_deberta.DebertaLayer with Deberta->DebertaV2
 class DebertaV2Layer(nn.Module):
@@ -500,6 +533,9 @@ class DebertaV2Layer(nn.Module):
             return (layer_output, att_matrix)
         else:
             return layer_output
+        
+        
+
 
 
 class ConvLayer(nn.Module):
@@ -1206,6 +1242,21 @@ class DebertaV2Model(DebertaV2PreTrainedModel):
         
         for i in layer_num:
             self.encoder.layer[i].attention.self.add_unit_init_before_dotpro(head_indi=head_indi, init_type=init_type, act_type=act_type)
+
+    
+    def add_unit_init_after_ffnn1(self, layer_num=None, init_type="unit", act_type=None):
+        if layer_num is None:
+            layer_num = range(self.config.num_hidden_layers)
+        
+        for i in layer_num:
+            self.encoder.layer[i].output.add_unit_init_after_ffnn1(init_type=init_type, act_type=act_type)
+    
+    def add_unit_init_after_ffnn2(self, layer_num=None, init_type="unit", act_type=None):
+        if layer_num is None:
+            layer_num = range(self.config.num_hidden_layers)
+        
+        for i in layer_num:
+            self.encoder.layer[i].output.add_unit_init_after_ffnn2(init_type=init_type, act_type=act_type)
         
     
     def get_input_embeddings(self):
