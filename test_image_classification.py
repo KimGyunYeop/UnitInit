@@ -1,9 +1,9 @@
 from datasets import load_dataset, load_metric
 from transformers import AdamW, get_scheduler, get_cosine_schedule_with_warmup
-from transformers import ViTImageProcessor, ViTForImageClassification
+from transformers import ViTImageProcessor #, ViTForImageClassification
 from transformers import AutoImageProcessor, ConvNextForImageClassification
-from transformers.models.vit.configuration_vit import ViTConfig
-
+# from transformers.models.vit.configuration_vit import ViTConfig
+from modeling_vit import ViTForImageClassification, ViTConfig
 
 import torch
 from torch.utils.data import DataLoader
@@ -117,7 +117,6 @@ model = model_utils["model"].from_pretrained(
     image_size=args.image_size
     )
 
-
 if not args.no_add_linear:
     if args.add_linear_layer is None:
         if args.add_linear_num is None:
@@ -125,11 +124,16 @@ if not args.no_add_linear:
         elif args.add_linear_num > 0:
             args.add_linear_layer = range(args.add_linear_num)
         else:
-            args.add_linear_layer = range(model.config.num_hidden_layers - args.add_linear_num, model.config.num_hidden_layers)
-        
-    model.deberta.add_eye_linear(random_init=args.random_init, add_linear_layer=args.add_linear_layer, share_eye=args.enc_dec_share, head_indi=args.head_indi)
-
+            args.add_linear_layer = range(model.config.num_hidden_layers + args.add_linear_num, model.config.num_hidden_layers)
+    print(args.add_linear_layer)
+    if args.add_position == "befdot":
+        model.vit.add_unit_init_before_dotpro(layer_num=args.add_linear_layer, head_indi=args.head_indi, init_type=args.init_type, act_type=args.act_type)
+    elif args.add_position == "aftffnn1":
+        pass
+    
 model.to(device)
+# print(model)
+# assert 0
 
 # optimizer = AdamW(model.parameters(), lr=args.learning_rate, betas=[args.beta1,args.beta2], weight_decay=args.weight_decay, eps=args.eps)
 # scheduler = get_scheduler("linear", optimizer, args.warmup_steps, len(train_dataloader)* args.epoch) 

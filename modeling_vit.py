@@ -40,7 +40,7 @@ from transformers.utils import (
     logging,
     replace_return_docstrings,
 )
-from transformers.configuration_vit import ViTConfig
+from transformers.models.vit.configuration_vit import ViTConfig
 
 from add_layer_utils import add_unit_init_linear
 
@@ -250,9 +250,9 @@ class ViTSelfAttention(nn.Module):
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
         
     def add_unit_init_before_dotpro(self, head_indi=True, init_type="unit", act_type=None):
-        self.added_query_proj = UnitInitLayerBeforeDotproduct(self.query_proj, num_heads=self.num_attention_heads, head_indi=head_indi, init_type=init_type, act_type=act_type)
-        self.added_key_proj = UnitInitLayerBeforeDotproduct(self.key_proj, num_heads=self.num_attention_heads, head_indi=head_indi, init_type=init_type, act_type=act_type)
-        self.added_value_proj = UnitInitLayerBeforeDotproduct(self.value_proj, num_heads=self.num_attention_heads, head_indi=head_indi, init_type=init_type, act_type=act_type)
+        self.added_query_proj = UnitInitLayerBeforeDotproduct(self.query, num_heads=self.num_attention_heads, head_indi=head_indi, init_type=init_type, act_type=act_type)
+        self.added_key_proj = UnitInitLayerBeforeDotproduct(self.key, num_heads=self.num_attention_heads, head_indi=head_indi, init_type=init_type, act_type=act_type)
+        self.added_value_proj = UnitInitLayerBeforeDotproduct(self.value, num_heads=self.num_attention_heads, head_indi=head_indi, init_type=init_type, act_type=act_type)
 
 
     def transpose_for_scores(self, x: torch.Tensor) -> torch.Tensor:
@@ -585,7 +585,8 @@ class ViTModel(ViTPreTrainedModel):
             layer_num = range(self.config.num_hidden_layers)
         
         for i in layer_num:
-            self.encoder.layer[i].attention.self.add_unit_init_before_dotpro(head_indi=head_indi, init_type=init_type, act_type=act_type)
+            self.encoder.layer[i].attention.attention.add_unit_init_before_dotpro(head_indi=head_indi, init_type=init_type, act_type=act_type)
+            
 
     def get_input_embeddings(self) -> ViTPatchEmbeddings:
         return self.embeddings.patch_embeddings
