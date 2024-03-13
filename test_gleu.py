@@ -59,14 +59,14 @@ api = wandb.Api()
 
 runs = api.runs(path="isnlp_lab/unit_init_glue")
 
-a = set()
+task = args.glue_task
 print("check duplicate")
 for r in runs:
     if r.state == "crashed" or r.state == "failed":
         continue
     
-    if r.name == args.result_path:
-        assert "duplicate experiment"
+    if r.name == "{}_{}".format(args.result_path, task):
+        raise "duplicate experiment"
 
 
 model_utils = MODEL_LIST[model_type]
@@ -76,7 +76,6 @@ if args.model_load_path is not None:
 if args.dev:
     args.result_path = "test_"+args.result_path
     
-task = args.glue_task
 
 dataset = load_dataset("glue", task , cache_dir=server_env.data_path)
 metric = load_metric('glue', task , cache_dir=server_env.data_path)
