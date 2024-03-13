@@ -60,6 +60,7 @@ api = wandb.Api()
 runs = api.runs(path="isnlp_lab/unit_init_glue")
 
 task = args.glue_task
+print("{}_{}".format(args.result_path, task))
 print("check duplicate")
 for r in runs:
     if r.state == "crashed" or r.state == "failed":
