@@ -114,10 +114,8 @@ model = model_utils["model"].from_pretrained(
     #id2label={str(i): c for i, c in enumerate(labels)},
     #label2id={c: str(i) for i, c in enumerate(labels)},
     ignore_mismatched_sizes=True,
-    image_size=384
+    image_size=args.image_size
     )
-
-# model.vit.config.image_size=384
 
 
 if not args.no_add_linear:
@@ -160,64 +158,17 @@ if not args.dev:
 print("Model Type:", model_type)
 print("Dataset Name:", dataset_name)
 
-# #####
-# model.eval()
-
-# losses = []
-# best_dev_score = 0
-# best_test_score = 0
-# with torch.no_grad():
-#     for batches in tqdm(val_dataloader):
-#         for idx in batches.keys():
-#             batches[idx] = batches[idx].to(device)
-        
-#         out = model(**batches)
-
-#         losses.append(out.loss.item())
-#         metric.add_batch(predictions=torch.argmax(out.logits, dim=-1), references=batches["labels"])
-#         # pred_list.append(torch.argmax(out.logits, dim=-1))
-#         # label_list.append(batches["labels"])
-        
-#     final_score = metric.compute()
-
-#     print("dev_loss = {}".format(sum(losses)/len(losses)))
-#     print("dev", final_score)
-
-#     change_score_name = dict()
-#     for i,j in final_score.items():
-#             change_score_name["{}_dev_{}".format(args.image_classification_dataset, i)] = j
-#     # change_score_name["{}_dev_{}".format(task, "acc")] = sum(pred_list == label_list)/pred_list.size()[0]
-#     change_score_name["epoch"] = 0 ##### 균엽이 코드에서 왜 +1 인지 확인하기
-#     change_score_name["lr"] = optimizer.param_groups[0]["lr"]
-
-#     for batches in tqdm(test_dataloader):
-#             for idx in batches.keys():
-#                 batches[idx] = batches[idx].to(device)
-            
-#             out = model(**batches)
-
-#             losses.append(out.loss.item()) 
-#             metric.add_batch(predictions=torch.argmax(out.logits, dim=-1), references=batches["labels"])
-            
-#     final_score = metric.compute()
-
-# print("test", final_score)
-# for i,j in final_score.items():
-#     change_score_name["{}_test_{}".format(args.image_classification_dataset, i)] = j
-# change_score_name["epoch"] = 0 ##### 균엽이 코드에서 왜 +1 인지 확인하기
-
-# if not args.dev:
-#     wandb.log(change_score_name)
-# #####
-
 for E in range(1, args.epoch+1):
     model.train()
+    
+    step_cnt=0
     
     losses = []
     dl = tqdm(train_dataloader)
     for batches in dl:
         for idx in batches.keys():
             batches[idx] = batches[idx].to(device)
+        step_cnt += 1
         # print(batches)
         # print(batches["pixel_values"].shape) # torch.Size([bs, 3, 224, 224])
         # print(batches["labels"].shape) # torch.Size([bs])        
@@ -228,12 +179,16 @@ for E in range(1, args.epoch+1):
         out.loss.backward()
         losses.append(out.loss.item())
         
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        ##### 여기 확인하기
-        optimizer.step()
-        optimizer.zero_grad()
-        scheduler.step()
+        if step_cnt == args.accumulate_step:
+            step_cnt = 0
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            optimizer.step()
+            optimizer.zero_grad()
+            scheduler.step()
+            
         dl.set_description("loss="+str(out.loss.item()))
+        
+        
 
     print("train_loss = {}".format(sum(losses)/len(losses)))
     
