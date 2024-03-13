@@ -16,7 +16,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="various_attention")
 
     parser.add_argument(
-        "--for_cv", default=False, action="store_true" #?????
+        "--for_cv", default=False, action="store_true" 
     )
     parser.add_argument(
         "--result_path", type=str, required=True
@@ -48,6 +48,9 @@ def parse_args():
         "--beta2", type=float, default=0.999, required=False
     )
     parser.add_argument(
+        "--momentum", type=float, default=0.9, required=False
+    )
+    parser.add_argument(
         "--weight_decay", type=float, default=0.01, required=False
     )
     parser.add_argument(
@@ -75,10 +78,10 @@ def parse_args():
         "--head_indi", default=False, action="store_true"
     )
     parser.add_argument(
-        "--add_position", default="befdot", choices=["befdot", "aftffnn"]
+        "--add_position", default="befdot", choices=["befdot", "aftffnn1", "aftffnn2"]
     )
     parser.add_argument(
-        "--act_type", type=str, default=None
+        "--act_type", type=str, default=None, choices=["midgelu", "gelu", "midrelu"]
     )
     
     #glue
@@ -103,17 +106,21 @@ def parse_args():
 def tf_make_result_path(args):
     result_path = [args.result_path]
     
-    try:
-        result_path.append(args.task)
-    except:
-        result_path.append(args.glue_task)
+    if args.for_cv==False:
+        try:
+            result_path.append(args.task)
+        except:
+            result_path.append(args.glue_task)
+    
+    if args.for_cv:
+        result_path.append(str(args.learning_rate))
     
     if args.no_add_linear:
         result_path.append("baseline")
         return "_".join(result_path)
     
     result_path.append(args.add_position)
-    
+
     result_path.append(args.init_type)
     
     if args.add_linear_num is not None:
@@ -131,7 +138,8 @@ def tf_make_result_path(args):
     if args.act_type is None:
         result_path.append("no_act")
     else:
-        pass
-        
+        result_path.append(args.act_type)
+
+    
         
     return '_'.join(result_path)
