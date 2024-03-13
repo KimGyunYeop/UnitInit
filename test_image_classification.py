@@ -1,13 +1,15 @@
 from datasets import load_dataset, load_metric
-from transformers import AdamW, get_scheduler 
+from transformers import AdamW, get_scheduler, get_cosine_schedule_with_warmup
 from transformers import ViTImageProcessor, ViTForImageClassification
 from transformers import AutoImageProcessor, ConvNextForImageClassification
+from transformers.models.vit.configuration_vit import ViTConfig
+
 
 import torch
 from torch.utils.data import DataLoader
 from torch.optim import Adam
 
-from utils import parse_args
+from utils import parse_args, tf_make_result_path, seed_fix
 
 from tqdm import tqdm
 import os
@@ -20,7 +22,9 @@ MODEL_LIST = {
     "vit":{
         "model" : ViTForImageClassification,
         "image_processor" : ViTImageProcessor,
-        "model_load_path" : "google/vit-base-patch16-224-in21k"
+        "model_load_path" : "google/vit-base-patch16-224-in21k",
+        # "image_processor_load_path" : "google/vit-base-patch16-224-in21k" 
+        "image_processor_load_path" : "google/vit-base-patch16-384"   
     },
     "convnext":{
         "model" : ConvNextForImageClassification,
@@ -40,9 +44,9 @@ dataset_to_labeldict = {
     "imagenet-1k": 'label', 
 }
 
-
 args = parse_args()
-server_env = argparse.Namespace(**json.load(open("server_envs.json","r"))) # "data_path": "/home/nlplab/hdd1/gyop/dataset"
+seed_fix(args.seed)
+server_env = argparse.Namespace(**json.load(open("server_envs.json","r"))) 
 device = "cuda:"+str(args.gpu) 
 
 model_type = None
@@ -51,6 +55,21 @@ for i in list(MODEL_LIST.keys()): # "vit", "convnext"
         model_type = i
 if model_type is None:
     assert "result path must include model type!"    
+
+args.result_path = tf_make_result_path(args)
+
+api = wandb.Api()
+
+runs = api.runs(path="isnlp_lab/unit_init_glue")
+
+a = set()
+print("check duplicate")
+for r in runs:
+    if r.state == "crashed" or r.state == "failed":
+        continue
+    
+    if r.name == args.result_path:
+        assert "duplicate experiment"
 
 model_utils = MODEL_LIST[model_type] # model, image_processor, model_load_path
 if args.model_load_path is not None:
@@ -66,16 +85,10 @@ dataset_labeldict = dataset_to_labeldict[dataset_name]
 dataset_imagedict = dataset_to_imagedict[dataset_name]
 dataset = load_dataset(dataset_name , cache_dir=server_env.data_path, use_auth_token=True) 
 metric = load_metric("accuracy") 
-# tmp_metric = metric.compute(predictions=torch.Tensor([0,1]), references=torch.Tensor([0,1]))
 # print(dataset)
-# print()
-# print(dataset["train"].features)
-# print()
-# print(dataset["train"][0])
-# print()
 # assert 0
 
-processor = model_utils["image_processor"].from_pretrained(model_utils["model_load_path"])
+processor = model_utils["image_processor"].from_pretrained(model_utils["image_processor_load_path"])
 
 def custom_collate_fn(batches):
     inputs = processor([batch[dataset_imagedict] for batch in batches], return_tensors='pt') #inputs['pixel_values']
@@ -94,13 +107,18 @@ test_dataloader = DataLoader(dataset["test"], batch_size=args.batch_size, collat
 
 labels = dataset['train'].features[dataset_labeldict].names
 
+
 model = model_utils["model"].from_pretrained(
     model_utils["model_load_path"], 
     num_labels=len(labels),
     #id2label={str(i): c for i, c in enumerate(labels)},
     #label2id={c: str(i) for i, c in enumerate(labels)},
-    ignore_mismatched_sizes=True #####
+    ignore_mismatched_sizes=True,
+    image_size=384
     )
+
+# model.vit.config.image_size=384
+
 
 if not args.no_add_linear:
     if args.add_linear_layer is None:
@@ -115,33 +133,89 @@ if not args.no_add_linear:
 
 model.to(device)
 
-optimizer = AdamW(model.parameters(), lr=args.learning_rate, betas=[args.beta1,args.beta2], weight_decay=args.weight_decay, eps=args.eps)
-scheduler = get_scheduler("linear", optimizer, args.warmup_steps, len(train_dataloader)* args.epoch)
+# optimizer = AdamW(model.parameters(), lr=args.learning_rate, betas=[args.beta1,args.beta2], weight_decay=args.weight_decay, eps=args.eps)
+# scheduler = get_scheduler("linear", optimizer, args.warmup_steps, len(train_dataloader)* args.epoch) 
+optimizer = torch.optim.SGD(model.parameters(), lr=args.learning_rate, momentum=args.momentum, weight_decay=args.weight_decay)
+scheduler = get_cosine_schedule_with_warmup(optimizer, num_warmup_steps=args.warmup_steps, num_training_steps=args.epoch*len(train_dataloader))
+# num_training_steps 다시 확인하기
 
 ##################################################
 
 args.model_config = model.config
-'''
+
+tmp_metric = metric.compute(predictions=torch.Tensor([0,1]), references=torch.Tensor([0,1]))
+#####?????
+
 if not args.dev:
-    wandb.init(project=model_type+"_"+dataset_name, entity="gyunyeop",name="{}_{}".format(args.model_path, dataset_name), reinit=True)
+    wandb.init(project="unit_init_cv", entity="isnlp_lab",name="{}_{}".format(args.result_path, args.image_classification_dataset), reinit=True)
     for i,_ in tmp_metric.items():
-        wandb.define_metric("{}_dev_{}".format(dataset_name,i), summary="max")
-        wandb.define_metric("{}_test_{}".format(dataset_name,i), summary="max")
-    wandb.define_metric("{}_dev_{}".format(dataset_name,"acc"), summary="max")
-    wandb.define_metric("{}_test_{}".format(dataset_name,"acc"), summary="max")
+        wandb.define_metric("{}_dev_{}".format(args.image_classification_dataset,i), summary="max")
+        wandb.define_metric("{}_test_{}".format(args.image_classification_dataset,i), summary="max")
+    wandb.define_metric("{}_dev_{}".format(args.image_classification_dataset,"acc"), summary="max")
+    wandb.define_metric("{}_test_{}".format(args.image_classification_dataset,"acc"), summary="max")
     wandb.config.update(args)
-'''
 
 ##################################################
 
 print("Model Type:", model_type)
 print("Dataset Name:", dataset_name)
 
+# #####
+# model.eval()
+
+# losses = []
+# best_dev_score = 0
+# best_test_score = 0
+# with torch.no_grad():
+#     for batches in tqdm(val_dataloader):
+#         for idx in batches.keys():
+#             batches[idx] = batches[idx].to(device)
+        
+#         out = model(**batches)
+
+#         losses.append(out.loss.item())
+#         metric.add_batch(predictions=torch.argmax(out.logits, dim=-1), references=batches["labels"])
+#         # pred_list.append(torch.argmax(out.logits, dim=-1))
+#         # label_list.append(batches["labels"])
+        
+#     final_score = metric.compute()
+
+#     print("dev_loss = {}".format(sum(losses)/len(losses)))
+#     print("dev", final_score)
+
+#     change_score_name = dict()
+#     for i,j in final_score.items():
+#             change_score_name["{}_dev_{}".format(args.image_classification_dataset, i)] = j
+#     # change_score_name["{}_dev_{}".format(task, "acc")] = sum(pred_list == label_list)/pred_list.size()[0]
+#     change_score_name["epoch"] = 0 ##### 균엽이 코드에서 왜 +1 인지 확인하기
+#     change_score_name["lr"] = optimizer.param_groups[0]["lr"]
+
+#     for batches in tqdm(test_dataloader):
+#             for idx in batches.keys():
+#                 batches[idx] = batches[idx].to(device)
+            
+#             out = model(**batches)
+
+#             losses.append(out.loss.item()) 
+#             metric.add_batch(predictions=torch.argmax(out.logits, dim=-1), references=batches["labels"])
+            
+#     final_score = metric.compute()
+
+# print("test", final_score)
+# for i,j in final_score.items():
+#     change_score_name["{}_test_{}".format(args.image_classification_dataset, i)] = j
+# change_score_name["epoch"] = 0 ##### 균엽이 코드에서 왜 +1 인지 확인하기
+
+# if not args.dev:
+#     wandb.log(change_score_name)
+# #####
+
 for E in range(1, args.epoch+1):
     model.train()
     
     losses = []
-    for batches in tqdm(train_dataloader):
+    dl = tqdm(train_dataloader)
+    for batches in dl:
         for idx in batches.keys():
             batches[idx] = batches[idx].to(device)
         # print(batches)
@@ -155,9 +229,11 @@ for E in range(1, args.epoch+1):
         losses.append(out.loss.item())
         
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        ##### 여기 확인하기
         optimizer.step()
         optimizer.zero_grad()
         scheduler.step()
+        dl.set_description("loss="+str(out.loss.item()))
 
     print("train_loss = {}".format(sum(losses)/len(losses)))
     
@@ -166,8 +242,8 @@ for E in range(1, args.epoch+1):
     model.eval()
 
     losses = []
-    pred_list = []
-    label_list = []
+    best_dev_score = 0
+    best_test_score = 0
     with torch.no_grad():
         for batches in tqdm(val_dataloader):
             for idx in batches.keys():
@@ -182,5 +258,31 @@ for E in range(1, args.epoch+1):
             
         final_score = metric.compute()
 
-    print("dev_loss = {}".format(sum(losses)/len(losses)))
-    print("dev", final_score)
+        print("dev_loss = {}".format(sum(losses)/len(losses)))
+        print("dev", final_score)
+
+        change_score_name = dict()
+        for i,j in final_score.items():
+                change_score_name["{}_dev_{}".format(args.image_classification_dataset, i)] = j
+        # change_score_name["{}_dev_{}".format(task, "acc")] = sum(pred_list == label_list)/pred_list.size()[0]
+        change_score_name["epoch"] = E ##### 균엽이 코드에서 왜 +1 인지 확인하기
+        change_score_name["lr"] = optimizer.param_groups[0]["lr"]
+
+        for batches in tqdm(test_dataloader):
+                for idx in batches.keys():
+                    batches[idx] = batches[idx].to(device)
+                
+                out = model(**batches)
+
+                losses.append(out.loss.item()) 
+                metric.add_batch(predictions=torch.argmax(out.logits, dim=-1), references=batches["labels"])
+                
+        final_score = metric.compute()
+
+    print("test", final_score)
+    for i,j in final_score.items():
+        change_score_name["{}_test_{}".format(args.image_classification_dataset, i)] = j
+    change_score_name["epoch"] = E ##### 균엽이 코드에서 왜 +1 인지 확인하기
+    
+    if not args.dev:
+        wandb.log(change_score_name)
