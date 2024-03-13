@@ -495,7 +495,7 @@ class DebertaV2Output(nn.Module):
         return hidden_states
     
     def add_unit_init_after_ffnn1(self, init_type="unit", act_type=None):
-        self.dropout = UnitInitLayerAfterFFNN(self.LayerNorm, self.config, init_type=init_type, act_type=act_type)
+        self.dropout = UnitInitLayerAfterFFNN(self.dropout, self.config, init_type=init_type, act_type=act_type)
     
     def add_unit_init_after_ffnn2(self, init_type="unit", act_type=None):
         self.LayerNorm = UnitInitLayerAfterFFNN(self.LayerNorm, self.config, init_type=init_type, act_type=act_type)
