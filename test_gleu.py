@@ -1,7 +1,8 @@
 from datasets import load_dataset, load_metric
-from transformers import AdamW, get_scheduler, DebertaV2Tokenizer
+from transformers import AdamW, get_scheduler, DebertaV2Tokenizer, T5Tokenizer
 
 from Debertav2_transformers import DebertaV2ForMaskedLM, DebertaV2Config, DebertaV2ForSequenceClassification
+from T5_transformers import T5ForSequenceClassification, T5Config
 from utils import parse_args, tf_make_result_path, seed_fix
 
 import torch
@@ -22,9 +23,10 @@ MODEL_LIST = {
         "model_load_path" : "microsoft/deberta-v3-large"
     },
     "t5":{
-        "tokenizer" : None,
-        "model" : None,
-        "config" : None 
+        "tokenizer" : T5Tokenizer,
+        "model" : T5ForSequenceClassification,
+        "config" : T5Config,
+        "model_load_path" : "google-t5/t5-base"
     }
 }
 
@@ -103,7 +105,7 @@ def custom_collate_fn(batches):
     texts, truncation=True, max_length=tokenizer.model_max_length, return_tensors="pt", padding=True
     )
     
-    tokenized_inputs["labels"] = torch.FloatTensor(labels)
+    tokenized_inputs["labels"] = torch.LongTensor(labels)
     
     return tokenized_inputs
 
@@ -124,6 +126,12 @@ else:
 model = model_utils["model"].from_pretrained(model_utils["model_load_path"], num_labels=num_labels)
 print(model.config)
 
+if "deberta" in args.result_path.split("_"):  
+    pre_trained_model = model.deberta
+elif "t5" in args.result_path.split("_"):
+    model.config.problem_type="single_label_classification"
+    pre_trained_model = model.transformer
+    
 if not args.no_add_linear:
     if args.add_linear_layer is None:
         if args.add_linear_num is None:
@@ -134,11 +142,11 @@ if not args.no_add_linear:
             args.add_linear_layer = range(model.config.num_hidden_layers + args.add_linear_num, model.config.num_hidden_layers)
     print(args.add_linear_layer)
     if args.add_position == "befdot":
-        model.deberta.add_unit_init_before_dotpro(layer_num=args.add_linear_layer, head_indi=args.head_indi, init_type=args.init_type, act_type=args.act_type)
+        pre_trained_model.add_unit_init_before_dotpro(layer_num=args.add_linear_layer, head_indi=args.head_indi, init_type=args.init_type, act_type=args.act_type)
     elif args.add_position == "aftffnn1":
-        model.deberta.add_unit_init_after_ffnn1(layer_num=args.add_linear_layer, init_type=args.init_type, act_type=args.act_type)
+        pre_trained_model.add_unit_init_after_ffnn1(layer_num=args.add_linear_layer, init_type=args.init_type, act_type=args.act_type)
     elif args.add_position == "aftffnn2":
-        model.deberta.add_unit_init_after_ffnn2(layer_num=args.add_linear_layer, init_type=args.init_type, act_type=args.act_type)
+        pre_trained_model.add_unit_init_after_ffnn2(layer_num=args.add_linear_layer, init_type=args.init_type, act_type=args.act_type)
 
 model.to(device)
 print(model)

@@ -5,6 +5,11 @@ import random
 import torch
 import numpy as np
 
+AVAIL_BATCH = {
+    "rte" : 8
+}
+
+
 def seed_fix(seed):
     random.seed(seed)
     np.random.seed(seed)
