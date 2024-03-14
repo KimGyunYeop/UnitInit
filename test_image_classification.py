@@ -113,8 +113,7 @@ model = model_utils["model"].from_pretrained(
     num_labels=len(labels),
     #id2label={str(i): c for i, c in enumerate(labels)},
     #label2id={c: str(i) for i, c in enumerate(labels)},
-    ignore_mismatched_sizes=True,
-    image_size=args.image_size
+    ignore_mismatched_sizes=True
     )
 
 if not args.no_add_linear:
@@ -132,7 +131,7 @@ if not args.no_add_linear:
         pass
     
 model.to(device)
-# print(model)
+print(model)
 # assert 0
 
 # optimizer = AdamW(model.parameters(), lr=args.learning_rate, betas=[args.beta1,args.beta2], weight_decay=args.weight_decay, eps=args.eps)
@@ -176,7 +175,8 @@ for E in range(1, args.epoch+1):
         # print(batches)
         # print(batches["pixel_values"].shape) # torch.Size([bs, 3, 224, 224])
         # print(batches["labels"].shape) # torch.Size([bs])        
-
+        batches["interpolate_pos_encoding"]=True
+        
         out = model(**batches)
         #print(out.logits.shape) # torch.Size([bs, num_labels])
         
