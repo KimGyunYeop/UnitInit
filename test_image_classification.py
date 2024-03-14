@@ -207,6 +207,7 @@ for E in range(1, args.epoch+1):
         for batches in tqdm(val_dataloader):
             for idx in batches.keys():
                 batches[idx] = batches[idx].to(device)
+            batches["interpolate_pos_encoding"]=True
             
             out = model(**batches)
 
@@ -230,6 +231,7 @@ for E in range(1, args.epoch+1):
         for batches in tqdm(test_dataloader):
                 for idx in batches.keys():
                     batches[idx] = batches[idx].to(device)
+                batches["interpolate_pos_encoding"]=True
                 
                 out = model(**batches)
 
