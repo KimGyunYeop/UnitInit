@@ -717,16 +717,28 @@ class T5Attention(nn.Module):
                     hidden_states = past_key_value
             return hidden_states
 
-        # get query states
-        query_states = shape(self.added_q(hidden_states))  # (batch_size, n_heads, seq_length, dim_per_head)
+        if hasattr(self, "added_q"):
+            # get query states
+            query_states = shape(self.added_q(hidden_states))  # (batch_size, n_heads, seq_length, dim_per_head)
 
-        # get key/value states
-        key_states = project(
-            hidden_states, self.added_k, key_value_states, past_key_value[0] if past_key_value is not None else None
-        )
-        value_states = project(
-            hidden_states, self.added_v, key_value_states, past_key_value[1] if past_key_value is not None else None
-        )
+            # get key/value states
+            key_states = project(
+                hidden_states, self.added_k, key_value_states, past_key_value[0] if past_key_value is not None else None
+            )
+            value_states = project(
+                hidden_states, self.added_v, key_value_states, past_key_value[1] if past_key_value is not None else None
+            )
+        else:
+            # get query states
+            query_states = shape(self.q(hidden_states))  # (batch_size, n_heads, seq_length, dim_per_head)
+
+            # get key/value states
+            key_states = project(
+                hidden_states, self.k, key_value_states, past_key_value[0] if past_key_value is not None else None
+            )
+            value_states = project( 
+                hidden_states, self.v, key_value_states, past_key_value[1] if past_key_value is not None else None
+            )
 
         # compute scores
         scores = torch.matmul(
