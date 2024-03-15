@@ -122,6 +122,9 @@ else:
     except:
         val_dataloader = DataLoader(dataset["test"], batch_size=args.batch_size, collate_fn=custom_collate_fn, num_workers=4,)
     test_dataloader = DataLoader(dataset["test"], batch_size=args.batch_size, collate_fn=custom_collate_fn, num_workers=4,)
+    
+if "wnli" in args.glue_task:
+    test_dataloader = DataLoader(dataset["validation"], batch_size=args.batch_size, collate_fn=custom_collate_fn, num_workers=4,)
 
 model = model_utils["model"].from_pretrained(model_utils["model_load_path"], num_labels=num_labels)
 print(model.config)
@@ -222,7 +225,7 @@ for E in range(1, args.epoch+1):
             
             out = model(**batches)
 
-            losses.append(out.loss.item())
+            # losses.append(out.loss.item())
             if num_labels == 1:
                 metric.add_batch(predictions=out.logits, references=batches["labels"])
             else:   
