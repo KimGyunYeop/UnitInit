@@ -110,6 +110,10 @@ def custom_collate_fn(batches):
     
     tokenized_inputs["labels"] = torch.LongTensor(labels)
     
+    if task == "stsb":
+        tokenized_inputs["labels"] = torch.FloatTensor(labels)
+        
+    
     return tokenized_inputs
 
 
