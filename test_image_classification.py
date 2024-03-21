@@ -127,9 +127,7 @@ if not args.no_add_linear:
     print(args.add_linear_layer)
     if args.add_position == "befdot":
         model.vit.add_unit_init_before_dotpro(layer_num=args.add_linear_layer, head_indi=args.head_indi, init_type=args.init_type, act_type=args.act_type)
-    elif args.add_position == "afterffnn":
-        pass
-    elif args.add_position == "both":
+    elif args.add_position == "aftffnn1":
         pass
     
 model.to(device)
