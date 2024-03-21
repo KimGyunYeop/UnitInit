@@ -91,7 +91,11 @@ metric = load_metric("accuracy")
 processor = model_utils["image_processor"].from_pretrained(model_utils["image_processor_load_path"])
 
 def custom_collate_fn(batches):
-    inputs = processor([batch[dataset_imagedict] for batch in batches], return_tensors='pt') #inputs['pixel_values']
+    if dataset_name=="imagenet-1k":
+      inputs = processor([batch[dataset_imagedict].convert('RGB') for batch in batches], return_tensors='pt') #inputs['pixel_values']
+    else:
+      inputs = processor([batch[dataset_imagedict] for batch in batches], return_tensors='pt') #inputs['pixel_values']
+
     inputs['labels'] = torch.tensor([batch[dataset_labeldict] for batch in batches])
     
     return inputs
@@ -128,9 +132,10 @@ if not args.no_add_linear:
     if args.add_position == "befdot":
         model.vit.add_unit_init_before_dotpro(layer_num=args.add_linear_layer, head_indi=args.head_indi, init_type=args.init_type, act_type=args.act_type)
     elif args.add_position == "afterffnn":
-        pass
+        model.vit.add_unit_init_after_ffnn(layer_num=args.add_linear_layer, init_type=args.init_type, act_type=args.act_type)
     elif args.add_position == "both":
-        pass
+        model.vit.add_unit_init_after_ffnn(layer_num=args.add_linear_layer, init_type=args.init_type, act_type=args.act_type)
+        model.vit.add_unit_init_before_dotpro(layer_num=args.add_linear_layer, head_indi=args.head_indi, init_type=args.init_type, act_type=args.act_type)
     
 model.to(device)
 print(model)
@@ -185,7 +190,8 @@ for E in range(1, args.epoch+1):
         out.loss.backward()
         losses.append(out.loss.item())
         
-        if step_cnt == args.accumulate_step:
+        # if step_cnt == args.accumulate_step:
+        if True:
             step_cnt = 0
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
@@ -193,8 +199,6 @@ for E in range(1, args.epoch+1):
             scheduler.step()
             
         dl.set_description("loss="+str(out.loss.item()))
-        
-        
 
     print("train_loss = {}".format(sum(losses)/len(losses)))
     
