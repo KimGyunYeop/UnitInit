@@ -86,7 +86,7 @@ def parse_args():
         "--head_indi", default=False, action="store_true"
     )
     parser.add_argument(
-        "--add_position", default="befdot", choices=["befdot", "aftffnn1", "aftffnn2"]
+        "--add_position", default="befdot", choices=["befdot", "aftffnn1", "aftffnn2", "afterffnn", "both"]
     )
     parser.add_argument(
         "--act_type", type=str, default=None, choices=["midgelu", "gelu", "midrelu"]
