@@ -62,6 +62,9 @@ api = wandb.Api()
 runs = api.runs(path="isnlp_lab/unit_init_glue")
 
 task = args.glue_task
+if task == "rte":
+    args.batch_size = 8
+
 print("{}_{}".format(args.result_path, task))
 print("check duplicate")
 for r in runs:
