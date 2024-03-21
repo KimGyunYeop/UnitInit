@@ -146,6 +146,12 @@ if not args.no_add_linear:
     print(args.add_linear_layer)
     if args.add_position == "befdot":
         pre_trained_model.add_unit_init_before_dotpro(layer_num=args.add_linear_layer, head_indi=args.head_indi, init_type=args.init_type, act_type=args.act_type)
+    elif args.add_position == "afterffnn":
+        pre_trained_model.add_unit_init_after_ffnn(layer_num=args.add_linear_layer, init_type=args.init_type, act_type=args.act_type)
+    elif args.add_position == "both":
+        pre_trained_model.add_unit_init_after_ffnn(layer_num=args.add_linear_layer, init_type=args.init_type, act_type=args.act_type)
+        pre_trained_model.add_unit_init_before_dotpro(layer_num=args.add_linear_layer, head_indi=args.head_indi, init_type=args.init_type, act_type=args.act_type)
+        
     elif args.add_position == "aftffnn1":
         pre_trained_model.add_unit_init_after_ffnn1(layer_num=args.add_linear_layer, init_type=args.init_type, act_type=args.act_type)
     elif args.add_position == "aftffnn2":

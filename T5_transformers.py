@@ -490,7 +490,7 @@ class T5LayerFF(nn.Module):
         hidden_states = hidden_states + self.dropout(forwarded_states)
         return hidden_states
 
-    def add_unit_init_after_ffnn1(self, init_type="unit", act_type=None):
+    def add_unit_init_after_ffnn(self, init_type="unit", act_type=None):
         self.dropout = UnitInitLayerAfterFFNN(self.dropout, self.config, init_type=init_type, act_type=act_type)
     
     def add_unit_init_after_ffnn2(self, init_type="unit", act_type=None):
@@ -1598,13 +1598,13 @@ class T5Model(T5PreTrainedModel):
             self.decoder.block[i].layer[1].EncDecAttention.add_unit_init_before_dotpro(head_indi=head_indi, init_type=init_type, act_type=act_type)
 
     
-    def add_unit_init_after_ffnn1(self, layer_num=None, init_type="unit", act_type=None):
+    def add_unit_init_after_ffnn(self, layer_num=None, init_type="unit", act_type=None):
         if layer_num is None:
             layer_num = range(self.config.num_layers)
         
         for i in layer_num:
-            self.encoder.block[i].layer[-1].add_unit_init_after_ffnn1(init_type=init_type, act_type=act_type)
-            self.decoder.block[i].layer[-1].add_unit_init_after_ffnn1(init_type=init_type, act_type=act_type)
+            self.encoder.block[i].layer[-1].add_unit_init_after_ffnn(init_type=init_type, act_type=act_type)
+            self.decoder.block[i].layer[-1].add_unit_init_after_ffnn(init_type=init_type, act_type=act_type)
     
     def add_unit_init_after_ffnn2(self, layer_num=None, init_type="unit", act_type=None):
         if layer_num is None:
@@ -1612,7 +1612,7 @@ class T5Model(T5PreTrainedModel):
         
         for i in layer_num:
             self.encoder.block[i].layer[-1].add_unit_init_after_ffnn2(init_type=init_type, act_type=act_type)
-            self.decoder.block[i].layer[-1].add_unit_init_after_ffnn1(init_type=init_type, act_type=act_type)
+            self.decoder.block[i].layer[-1].add_unit_init_after_ffnn(init_type=init_type, act_type=act_type)
 
     @add_start_docstrings(PARALLELIZE_DOCSTRING)
     def parallelize(self, device_map=None):

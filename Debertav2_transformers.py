@@ -494,7 +494,7 @@ class DebertaV2Output(nn.Module):
         
         return hidden_states
     
-    def add_unit_init_after_ffnn1(self, init_type="unit", act_type=None):
+    def add_unit_init_after_ffnn(self, init_type="unit", act_type=None):
         self.dropout = UnitInitLayerAfterFFNN(self.dropout, self.config, init_type=init_type, act_type=act_type)
     
     def add_unit_init_after_ffnn2(self, init_type="unit", act_type=None):
@@ -1244,12 +1244,12 @@ class DebertaV2Model(DebertaV2PreTrainedModel):
             self.encoder.layer[i].attention.self.add_unit_init_before_dotpro(head_indi=head_indi, init_type=init_type, act_type=act_type)
 
     
-    def add_unit_init_after_ffnn1(self, layer_num=None, init_type="unit", act_type=None):
+    def add_unit_init_after_ffnn(self, layer_num=None, init_type="unit", act_type=None):
         if layer_num is None:
             layer_num = range(self.config.num_hidden_layers)
         
         for i in layer_num:
-            self.encoder.layer[i].output.add_unit_init_after_ffnn1(init_type=init_type, act_type=act_type)
+            self.encoder.layer[i].output.add_unit_init_after_ffnn(init_type=init_type, act_type=act_type)
     
     def add_unit_init_after_ffnn2(self, layer_num=None, init_type="unit", act_type=None):
         if layer_num is None:

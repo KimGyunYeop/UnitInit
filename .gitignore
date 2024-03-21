@@ -8,3 +8,5 @@ results/*
 outputs/*
 
 __pycache__*
+
+*.xlsx
