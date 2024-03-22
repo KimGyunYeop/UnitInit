@@ -1,3 +1,4 @@
+ps aux | grep bash
 ps aux | grep python
 
 tail -f outputs/test_image_classification_0.log
