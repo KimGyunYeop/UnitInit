@@ -263,20 +263,10 @@ class ViTSelfAttention(nn.Module):
     def forward(
         self, hidden_states, head_mask: Optional[torch.Tensor] = None, output_attentions: bool = False
     ) -> Union[Tuple[torch.Tensor, torch.Tensor], Tuple[torch.Tensor]]:
-        
-        
-        if hasattr(self, "added_query_proj"):
-            mixed_query_layer = self.added_query_proj(hidden_states)
+        mixed_query_layer = self.query(hidden_states)
 
-            key_layer = self.transpose_for_scores(self.added_key_proj(hidden_states))
-            value_layer = self.transpose_for_scores(self.added_value_proj(hidden_states))
-        else:
-
-            mixed_query_layer = self.query(hidden_states)
-
-            key_layer = self.transpose_for_scores(self.key(hidden_states))
-            value_layer = self.transpose_for_scores(self.value(hidden_states))
-
+        key_layer = self.transpose_for_scores(self.key(hidden_states))
+        value_layer = self.transpose_for_scores(self.value(hidden_states))
         query_layer = self.transpose_for_scores(mixed_query_layer)
 
         # Take the dot product between "query" and "key" to get the raw attention scores.
