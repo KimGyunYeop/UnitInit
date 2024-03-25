@@ -85,8 +85,11 @@ dataset_labeldict = dataset_to_labeldict[dataset_name]
 dataset_imagedict = dataset_to_imagedict[dataset_name]
 dataset = load_dataset(dataset_name , cache_dir=server_env.data_path, use_auth_token=True) 
 metric = load_metric("accuracy") 
-# print(dataset)
-# assert 0
+
+if dataset_name=="cifar100":
+    eval_step=50000
+elif dataset_name=="imagenet-1k":
+    eval_step=10000
 
 processor = model_utils["image_processor"].from_pretrained(model_utils["image_processor_load_path"])
 
@@ -157,6 +160,9 @@ tmp_metric = metric.compute(predictions=torch.Tensor([0,1]), references=torch.Te
 #####?????
 
 if not args.dev:
+    save_path='/home/nlplab/ssd1/yoo/UnitInit/checkpoints/'+args.result_path+"_"+args.image_classification_dataset
+    os.makedirs(save_path,exist_ok=True)
+
     wandb.init(project="unit_init_cv", entity="isnlp_lab",name="{}_{}".format(args.result_path, args.image_classification_dataset), reinit=True)
     for i,_ in tmp_metric.items():
         wandb.define_metric("{}_dev_{}".format(args.image_classification_dataset,i), summary="max")
@@ -170,17 +176,20 @@ if not args.dev:
 print("Model Type:", model_type)
 print("Dataset Name:", dataset_name)
 
+step_cnt=0
+
 for E in range(1, args.epoch+1):
     model.train()
     
-    step_cnt=0
     
     losses = []
     dl = tqdm(train_dataloader)
     for batches in dl:
+        step_cnt += 1
+
         for idx in batches.keys():
             batches[idx] = batches[idx].to(device)
-        step_cnt += 1
+
         # print(batches)
         # print(batches["pixel_values"].shape) # torch.Size([bs, 3, 224, 224])
         # print(batches["labels"].shape) # torch.Size([bs])        
@@ -194,7 +203,7 @@ for E in range(1, args.epoch+1):
         
         # if step_cnt == args.accumulate_step:
         if True:
-            step_cnt = 0
+            #step_cnt = 0
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
             optimizer.zero_grad()
@@ -202,56 +211,63 @@ for E in range(1, args.epoch+1):
             
         dl.set_description("loss="+str(out.loss.item()))
 
-    print("train_loss = {}".format(sum(losses)/len(losses)))
+    # print("train_loss = {}".format(sum(losses)/len(losses)))
     
     ##########
+        if step_cnt % eval_step==0:
+            model.eval()
 
-    model.eval()
+            losses = []
+            # best_dev_score = 0
+            # best_test_score = 0
 
-    losses = []
-    best_dev_score = 0
-    best_test_score = 0
-    with torch.no_grad():
-        for batches in tqdm(val_dataloader):
-            for idx in batches.keys():
-                batches[idx] = batches[idx].to(device)
-            batches["interpolate_pos_encoding"]=True
+            with torch.no_grad():
+                for batches in tqdm(val_dataloader):
+                    for idx in batches.keys():
+                        batches[idx] = batches[idx].to(device)
+                    batches["interpolate_pos_encoding"]=True
+                    
+                    out = model(**batches)
+
+                    losses.append(out.loss.item())
+                    metric.add_batch(predictions=torch.argmax(out.logits, dim=-1), references=batches["labels"])
+                    # pred_list.append(torch.argmax(out.logits, dim=-1))
+                    # label_list.append(batches["labels"])
+                    
+                final_score = metric.compute()
+
+                print("dev_loss = {}".format(sum(losses)/len(losses)))
+                print("dev", final_score)
+
+                change_score_name = dict()
+                for i,j in final_score.items():
+                        change_score_name["{}_dev_{}".format(args.image_classification_dataset, i)] = j
+                # change_score_name["{}_dev_{}".format(task, "acc")] = sum(pred_list == label_list)/pred_list.size()[0]
+                change_score_name["epoch"] = E ##### 균엽이 코드에서 왜 +1 인지 확인하기
+                change_score_name["step"] = step_cnt ##### 균엽이 코드에서 왜 +1 인지 확인하기
+                change_score_name["lr"] = optimizer.param_groups[0]["lr"]
+
+
+
+                for batches in tqdm(test_dataloader):
+                        for idx in batches.keys():
+                            batches[idx] = batches[idx].to(device)
+                        batches["interpolate_pos_encoding"]=True
+                        
+                        out = model(**batches)
+
+                        losses.append(out.loss.item()) 
+                        metric.add_batch(predictions=torch.argmax(out.logits, dim=-1), references=batches["labels"])
+                    
+                final_score = metric.compute()      
+
+                print("test", final_score)
+                for i,j in final_score.items():
+                    change_score_name["{}_test_{}".format(args.image_classification_dataset, i)] = j
+                change_score_name["epoch"] = E ##### 균엽이 코드에서 왜 +1 인지 확인하기
+
+            model_name="model_"+str(step_cnt)+".bin"
+            torch.save(model.state_dict(), os.path.join(save_path, model_name))
             
-            out = model(**batches)
-
-            losses.append(out.loss.item())
-            metric.add_batch(predictions=torch.argmax(out.logits, dim=-1), references=batches["labels"])
-            # pred_list.append(torch.argmax(out.logits, dim=-1))
-            # label_list.append(batches["labels"])
-            
-        final_score = metric.compute()
-
-        print("dev_loss = {}".format(sum(losses)/len(losses)))
-        print("dev", final_score)
-
-        change_score_name = dict()
-        for i,j in final_score.items():
-                change_score_name["{}_dev_{}".format(args.image_classification_dataset, i)] = j
-        # change_score_name["{}_dev_{}".format(task, "acc")] = sum(pred_list == label_list)/pred_list.size()[0]
-        change_score_name["epoch"] = E ##### 균엽이 코드에서 왜 +1 인지 확인하기
-        change_score_name["lr"] = optimizer.param_groups[0]["lr"]
-
-        for batches in tqdm(test_dataloader):
-                for idx in batches.keys():
-                    batches[idx] = batches[idx].to(device)
-                batches["interpolate_pos_encoding"]=True
-                
-                out = model(**batches)
-
-                losses.append(out.loss.item()) 
-                metric.add_batch(predictions=torch.argmax(out.logits, dim=-1), references=batches["labels"])
-                
-        final_score = metric.compute()
-
-    print("test", final_score)
-    for i,j in final_score.items():
-        change_score_name["{}_test_{}".format(args.image_classification_dataset, i)] = j
-    change_score_name["epoch"] = E ##### 균엽이 코드에서 왜 +1 인지 확인하기
-    
-    if not args.dev:
-        wandb.log(change_score_name)
+            if not args.dev:
+                wandb.log(change_score_name)
