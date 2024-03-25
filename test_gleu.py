@@ -232,24 +232,24 @@ for E in range(1, args.epoch+1):
         change_score_name["epoch"] = E+1
         
         
-        for batches in tqdm(test_dataloader):
-            for idx in batches.keys():
-                batches[idx] = batches[idx].to(device)
+    #     for batches in tqdm(test_dataloader):
+    #         for idx in batches.keys():
+    #             batches[idx] = batches[idx].to(device)
             
-            out = model(**batches)
+    #         out = model(**batches)
 
-            # losses.append(out.loss.item())
-            if num_labels == 1:
-                metric.add_batch(predictions=out.logits, references=batches["labels"])
-            else:   
-                metric.add_batch(predictions=torch.argmax(out.logits, dim=-1), references=batches["labels"])
+    #         # losses.append(out.loss.item())
+    #         if num_labels == 1:
+    #             metric.add_batch(predictions=out.logits, references=batches["labels"])
+    #         else:   
+    #             metric.add_batch(predictions=torch.argmax(out.logits, dim=-1), references=batches["labels"])
             
-        final_score = metric.compute()
+    #     final_score = metric.compute()
     
     
-    print("test", final_score)
-    for i,j in final_score.items():
-        change_score_name["{}_test_{}".format(task, i)] = j
+    # print("test", final_score)
+    # for i,j in final_score.items():
+    #     change_score_name["{}_test_{}".format(task, i)] = j
     # change_score_name["{}_test_{}".format(task, "acc")] = sum(pred_list == label_list)/pred_list.size()[0]
     change_score_name["epoch"] = E+1
     
