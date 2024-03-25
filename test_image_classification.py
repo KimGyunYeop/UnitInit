@@ -87,7 +87,7 @@ dataset = load_dataset(dataset_name , cache_dir=server_env.data_path, use_auth_t
 metric = load_metric("accuracy") 
 
 if dataset_name=="cifar100":
-    eval_step=5000
+    eval_step=500
 elif dataset_name=="imagenet-1k":
     eval_step=10000
 

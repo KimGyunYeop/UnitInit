@@ -27,5 +27,5 @@ python -u test_image_classification.py --result_path convnext --image_classifica
 python -u test_image_classification.py --result_path convnext --image_classification_dataset imagenet-1k --no_add_linear --batch_size 64 --gpu 0 --dev 
 
 git add .
-git commit -m "message"
+git commit -m "m"
 git push
