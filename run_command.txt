@@ -28,5 +28,4 @@ python -u test_image_classification.py --result_path convnext --image_classifica
 
 git add .
 git commit -m "message"
-git commit -m "message"
 git push
