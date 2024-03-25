@@ -6,6 +6,7 @@ wandb/*
 
 results/*
 outputs/*
+checkpoints/*
 
 __pycache__*
 
