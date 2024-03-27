@@ -91,6 +91,9 @@ def parse_args():
     parser.add_argument(
         "--act_type", type=str, default=None, choices=["midgelu", "gelu", "midrelu"]
     )
+    parser.add_argument(
+        "--adapter", default=False, action="store_true"
+    )
     
     #glue
     GLUE_TASKS = ["cola", "sst2", "mrpc", "stsb", "qqp", "mnli", "mnli_matched", "mnli_mismatched", "qnli", "rte", "wnli"]
@@ -151,6 +154,9 @@ def tf_make_result_path(args):
     else:
         result_path.append(args.act_type)
 
-    
+        
+    if args.adapter:
+        result_path.append("adapter")
+
         
     return '_'.join(result_path)
