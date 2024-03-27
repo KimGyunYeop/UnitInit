@@ -89,7 +89,7 @@ def parse_args():
         "--add_position", default="befdot", choices=["befdot", "aftffnn1", "aftffnn2", "afterffnn", "both"]
     )
     parser.add_argument(
-        "--act_type", type=str, default=None, choices=["midgelu", "gelu", "midrelu"]
+        "--act_type", type=str, default=None, choices=["midgelu", "gelu", "midrelu", "relu"]
     )
     parser.add_argument(
         "--adapter", default=False, action="store_true"
@@ -157,6 +157,10 @@ def tf_make_result_path(args):
         
     if args.adapter:
         result_path.append("adapter")
+        
+    if args.dev:
+        result_path.append("dev")
+        
 
         
     return '_'.join(result_path)

@@ -50,10 +50,11 @@ def add_unit_init_linear(in_features, out_features, bias=False, init_type="unit"
     if in_features != out_features:
         assert "In current version, in feature and out feature must same!!"
     
-    if act_type is None:
-        new_layer = nn.Linear(in_features, out_features, bias=bias)
-    elif "mid" in act_type:
+    
+    if "mid" in act_type:
         new_layer = CustomLinearLayer(in_features, out_features, bias=bias, act_type=act_type)
+    else:
+        new_layer = nn.Linear(in_features, out_features, bias=bias)
     
     if init_type == "unit":
         new_layer.weight.data = torch.nn.Parameter(torch.eye(in_features))

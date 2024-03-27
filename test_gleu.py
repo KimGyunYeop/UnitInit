@@ -171,11 +171,7 @@ if args.adapter:
             #param.requires_grad=False
         else:
             param.requires_grad_(requires_grad=True)
-            
-    for name, param in model.named_parameters():
-        print(param.requires_grad, "\t/\t", name)
 
-assert 0
 
 model.to(device)
 print(model)
@@ -194,6 +190,13 @@ if not args.dev:
 optimizer = AdamW(model.parameters(), lr=args.learning_rate, betas=[args.beta1,args.beta2], weight_decay=args.weight_decay, eps=args.eps)
 scheduler = get_scheduler("linear", optimizer, args.warmup_steps, len(train_dataloader)* args.epoch)
 
+
+for name, param in model.named_parameters():
+    if "added" in name:
+        print(name, param)
+        break
+
+
 for E in range(1, args.epoch+1):
     model.train()
     
@@ -208,7 +211,9 @@ for E in range(1, args.epoch+1):
         out.loss.backward()
         losses.append(out.loss.item())
         
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        if not args.adapter:
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        
         optimizer.step()
         optimizer.zero_grad()
         scheduler.step()
@@ -243,7 +248,13 @@ for E in range(1, args.epoch+1):
             change_score_name["{}_dev_{}".format(task, i)] = j
         # change_score_name["{}_dev_{}".format(task, "acc")] = sum(pred_list == label_list)/pred_list.size()[0]
         change_score_name["epoch"] = E+1
-        
+
+    for name, param in model.named_parameters():
+        if "added" in name:
+            print(name, param)
+            break
+
+
         
     #     for batches in tqdm(test_dataloader):
     #         for idx in batches.keys():
