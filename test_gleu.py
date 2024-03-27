@@ -171,6 +171,11 @@ if args.adapter:
             #param.requires_grad=False
         else:
             param.requires_grad_(requires_grad=True)
+            
+    for name, param in model.named_parameters():
+        print(param.requires_grad, "\t/\t", name)
+
+assert 0
 
 model.to(device)
 print(model)
