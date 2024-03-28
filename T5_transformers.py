@@ -490,10 +490,10 @@ class T5LayerFF(nn.Module):
         hidden_states = hidden_states + self.dropout(forwarded_states)
         return hidden_states
 
-    def add_unit_init_after_ffnn(self, init_type="unit", act_type=None):
+    def add_unit_init_after_ffnn2(self, init_type="unit", act_type=None):
         self.dropout = UnitInitLayerAfterFFNN(self.dropout, self.config, init_type=init_type, act_type=act_type)
     
-    def add_unit_init_after_ffnn2(self, init_type="unit", act_type=None):
+    def add_unit_init_after_ffnn(self, init_type="unit", act_type=None):
         self.layer_norm = UnitInitLayerAfterFFNN(self.layer_norm, self.config, init_type=init_type, act_type=act_type)
 
 class UnitInitLayerBeforeDotproduct(nn.Module):

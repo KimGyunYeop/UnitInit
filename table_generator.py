@@ -3,7 +3,7 @@ import pandas as pd
 import os
 
 glue_keywords={
-    "glue_task":"wnli",
+    "glue_task":"cola",
     "model_type":"",
     "add_position":"",
     "act_type":"",
