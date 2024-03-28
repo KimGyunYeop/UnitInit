@@ -3,7 +3,7 @@ import pandas as pd
 import os
 
 glue_keywords={
-    "glue_task":"cola",
+    "glue_task":"stsb",
     "model_type":"",
     "add_position":"",
     "act_type":"",
