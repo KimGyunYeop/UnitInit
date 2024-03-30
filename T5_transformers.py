@@ -2322,7 +2322,6 @@ class T5ForSequenceClassification(T5PreTrainedModel):
         sentence_representation = sequence_output[eos_mask, :].view(batch_size, -1, hidden_size)[:, -1, :]
         logits = self.classification_head(sentence_representation)
        
-        print(self.config.num_labels)
     
         loss = None
         if labels is not None:
@@ -2335,7 +2334,6 @@ class T5ForSequenceClassification(T5PreTrainedModel):
                 else:
                     self.config.problem_type = "multi_label_classification"
             
-            print(self.config.problem_type)
             if self.config.problem_type == "regression":
                 loss_fct = MSELoss()
                 if self.config.num_labels == 1:
