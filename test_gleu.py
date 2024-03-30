@@ -136,7 +136,7 @@ if "wnli" in args.glue_task or "qqp" in args.glue_task:
 model = model_utils["model"].from_pretrained(model_utils["model_load_path"], num_labels=num_labels)
 
 if task == "stsb":
-    model.conifg.problem_type = "regression"
+    model.config.problem_type = "regression"
 print(model.config)
 
 if "deberta" in args.result_path.split("_"):  
