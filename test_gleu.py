@@ -112,7 +112,6 @@ def custom_collate_fn(batches):
     
     if task == "stsb":
         tokenized_inputs["labels"] = torch.FloatTensor(labels)
-        print( tokenized_inputs["labels"])
         
     
     return tokenized_inputs
@@ -136,16 +135,16 @@ if "wnli" in args.glue_task or "qqp" in args.glue_task:
 
 model = model_utils["model"].from_pretrained(model_utils["model_load_path"], num_labels=num_labels)
 
-if task == "stsb":
-    model.config.problem_type = "regression"
-print(model.config)
 
 if "deberta" in args.result_path.split("_"):  
     pre_trained_model = model.deberta
 elif "t5" in args.result_path.split("_"):
     model.config.problem_type="single_label_classification"
     pre_trained_model = model.transformer
-    
+
+if task == "stsb":
+    model.config.problem_type = "regression"
+
 if not args.no_add_linear:
     if args.add_linear_layer is None:
         if args.add_linear_num is None:
@@ -154,7 +153,7 @@ if not args.no_add_linear:
             args.add_linear_layer = range(args.add_linear_num)
         else:
             args.add_linear_layer = range(model.config.num_hidden_layers + args.add_linear_num, model.config.num_hidden_layers)
-    print(args.add_linear_layer)
+    
     if args.add_position == "befdot":
         pre_trained_model.add_unit_init_before_dotpro(layer_num=args.add_linear_layer, head_indi=args.head_indi, init_type=args.init_type, act_type=args.act_type)
     elif args.add_position == "afterffnn":
