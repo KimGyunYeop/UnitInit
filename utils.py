@@ -109,6 +109,12 @@ def parse_args():
     parser.add_argument(
         "--image_size", type=int, default=384
     )
+    parser.add_argument(
+        "--cifar_eval_step", type=int, default=500
+    )
+    parser.add_argument(
+        "--imagenet_eval_step", type=int, default=10000
+    )
 
     parser.add_argument(
         "--dev", default=False, action="store_true"

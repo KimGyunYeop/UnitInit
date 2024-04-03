@@ -87,9 +87,9 @@ dataset = load_dataset(dataset_name , cache_dir=server_env.data_path, use_auth_t
 metric = load_metric("accuracy") 
 
 if dataset_name=="cifar100":
-    eval_step=500
+    eval_step=args.cifar_eval_step
 elif dataset_name=="imagenet-1k":
-    eval_step=10000
+    eval_step=args.imagenet_eval_step
 
 processor = model_utils["image_processor"].from_pretrained(model_utils["image_processor_load_path"])
 
