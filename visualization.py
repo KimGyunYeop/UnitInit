@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 pd.set_option('display.max_colwidth', None)
 
 glue_keywords={
-    "glue_task":"cola",
+    "glue_task":"mrpc",
     "model_type":"",
     "add_position":"",
     "act_type":"",
@@ -130,7 +130,7 @@ def make_he_plot(check_case, baseline_check_case):
                 df.loc[0, "bottom"]= j.loc[k,'max_value']
                 df.loc[0, "top"]= j.loc[k,'max_value']
 
-    he_plot=sns.lineplot(data=df[['bottom', 'top']])
+    he_plot=sns.lineplot(data=df[['bottom', 'top']]).set(title=glue_keywords["glue_task"])
     plt.savefig("./figures/"+glue_keywords["glue_task"]+"_he_plot.png") 
     plt.clf()
 
@@ -175,7 +175,7 @@ def make_proposed_plot(proposed_check_case, he_check_case, baseline_check_case):
                 df.loc[0, 'proposed']= j.loc[k,'max_value']
                 df.loc[0, 'w/o proposed']= j.loc[k,'max_value']
 
-    proposed_plot=sns.lineplot(data=df[['proposed', 'w/o proposed']])
+    proposed_plot=sns.lineplot(data=df[['proposed', 'w/o proposed']]).set(title=glue_keywords["glue_task"])
     plt.savefig("./figures/"+glue_keywords["glue_task"]+"_proposed_plot.png") 
     plt.clf()
 
