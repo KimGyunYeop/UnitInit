@@ -121,6 +121,9 @@ def parse_args():
     parser.add_argument(
         "--generation_task", type=str, default="mrpc", choices=["cnndm", "wmt_en_ro"]
     )
+    parser.add_argument(
+        "--generate_full_batch", type=int, default=128
+    )
 
 
     parser.add_argument(
