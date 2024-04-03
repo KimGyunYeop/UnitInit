@@ -112,8 +112,13 @@ accumulation_steps = args.generate_full_batch // args.batch_size
 model = model_utils["model"].from_pretrained(model_utils["model_load_path"])
 
 def preprocess_function(examples):
-        inputs = [ex["en"] for ex in examples["translation"]]
-        targets = [ex["ro"] for ex in examples["translation"]]
+        if "wmt" in task:
+            inputs = [ex["en"] for ex in examples["translation"]]
+            targets = [ex["ro"] for ex in examples["translation"]]
+        elif task == "cnndm":
+            inputs = examples["article"]
+            targets = examples["highlights"]
+            
         # inputs = [prefix + inp for inp in inputs]
         model_inputs = tokenizer(inputs, max_length=tokenizer.model_max_length, padding=False, truncation=True)
 
