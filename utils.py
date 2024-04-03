@@ -119,9 +119,13 @@ def parse_args():
     
     #text_generation
     parser.add_argument(
-        "--generation_task", type=str, default="mrpc", choices=["cnndm", "wmt"]
+        "--generation_task", type=str, default="mrpc", choices=["cnndm", "wmt_en_ro"]
     )
-    
+
+
+    parser.add_argument(
+        "--logging_step", type=int, default=10000,
+    )
     parser.add_argument(
         "--dev", default=False, action="store_true"
     )
