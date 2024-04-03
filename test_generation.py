@@ -101,6 +101,7 @@ def custom_collate_fn(batches):
     
     return tokenized_inputs, [sentences, labels]
 
+accumulation_steps = args.generate_full_batch // args.batch_size
 
 train_dataloader = DataLoader(dataset["train"], batch_size=args.batch_size, collate_fn=custom_collate_fn, num_workers=4, shuffle=True)
 val_dataloader = DataLoader(dataset["validation"], batch_size=args.batch_size, collate_fn=custom_collate_fn, num_workers=4)
@@ -158,7 +159,7 @@ if not args.dev:
     wandb.config.update(args)
 
 optimizer = AdamW(model.parameters(), lr=args.learning_rate, betas=[args.beta1,args.beta2], weight_decay=args.weight_decay, eps=args.eps)
-scheduler = get_scheduler("linear", optimizer, args.warmup_steps, len(train_dataloader)* args.epoch)
+# scheduler = get_scheduler("linear", optimizer, args.warmup_steps, len(train_dataloader)* args.epoch)
 
 for name, param in model.named_parameters():
     if "added" in name:
@@ -243,7 +244,6 @@ for E in range(1, args.epoch+1):
     losses = []
     dl = tqdm(train_dataloader)
     for batches, _ in dl:
-        steps += 1
 
         for idx in batches.keys():
             batches[idx] = batches[idx].to(device)
@@ -253,16 +253,19 @@ for E in range(1, args.epoch+1):
         out.loss.backward()
         losses.append(out.loss.item())
         
-        if not args.adapter:
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        # if not args.adapter:
+        #     torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         
-        optimizer.step()
-        optimizer.zero_grad()
-        scheduler.step()
+        if steps % accumulation_steps == 0 or steps == len(train_dataloader) - 1:
+                optimizer.step()
+                optimizer.zero_grad()
+                
         dl.set_description("loss="+str(out.loss.item()))
         
         if steps % args.logging_step == 0:
             evaluate(steps)
+        
+        steps += 1
             
 
     print("train_loss = {}".format(sum(losses)/len(losses)))
