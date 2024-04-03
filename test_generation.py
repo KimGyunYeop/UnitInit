@@ -1,5 +1,5 @@
 from datasets import load_dataset, load_metric
-from transformers import AdamW, get_scheduler, DebertaV2Tokenizer, T5Tokenizer
+from transformers import AdamW, get_scheduler, DebertaV2Tokenizer, T5Tokenizer, Adafactor, DataCollatorForSeq2Seq
 
 from T5_transformers import T5ForConditionalGeneration, T5Config
 from utils import parse_args, gen_make_result_path, seed_fix
@@ -99,16 +99,73 @@ def custom_collate_fn(batches):
     tokenized_inputs["labels"] = tokenized_labels["input_ids"]
     # tokenized_inputs["decoder_attention_mask"] = tokenized_labels["attention_mask"]
     
-    return tokenized_inputs, [sentences, labels]
+    return tokenized_inputs
 
 accumulation_steps = args.generate_full_batch // args.batch_size
 
-train_dataloader = DataLoader(dataset["train"], batch_size=args.batch_size, collate_fn=custom_collate_fn, num_workers=4, shuffle=True)
-val_dataloader = DataLoader(dataset["validation"], batch_size=args.batch_size, collate_fn=custom_collate_fn, num_workers=4)
-test_dataloader = DataLoader(dataset["test"], batch_size=args.batch_size, collate_fn=custom_collate_fn, num_workers=4,)
-    
-    
+
+# train_dataloader = DataLoader(dataset["train"], batch_size=args.batch_size, collate_fn=custom_collate_fn, num_workers=4, shuffle=True)
+# val_dataloader = DataLoader(dataset["validation"], batch_size=args.batch_size, collate_fn=custom_collate_fn, num_workers=4)
+# test_dataloader = DataLoader(dataset["test"], batch_size=args.batch_size, collate_fn=custom_collate_fn, num_workers=4,)
+
+
 model = model_utils["model"].from_pretrained(model_utils["model_load_path"])
+
+def preprocess_function(examples):
+        inputs = [ex["en"] for ex in examples["translation"]]
+        targets = [ex["ro"] for ex in examples["translation"]]
+        # inputs = [prefix + inp for inp in inputs]
+        model_inputs = tokenizer(inputs, max_length=tokenizer.model_max_length, padding=False, truncation=True)
+
+        # print(targets)
+        # Tokenize targets with the `text_target` keyword argument
+        labels = tokenizer(text_target=targets, max_length=tokenizer.model_max_length, padding=False, truncation=True)
+        # print(labels)
+        # assert 0
+
+        # If we are padding here, replace all tokenizer.pad_token_id in the labels by -100 when we want to ignore
+        # padding in the loss.
+        # if padding == "max_length" and data_args.ignore_pad_token_for_loss:
+        #     labels["input_ids"] = [
+        #         [(l if l != tokenizer.pad_token_id else -100) for l in label] for label in labels["input_ids"]
+        #     ]
+
+        model_inputs["labels"] = labels["input_ids"]
+        return model_inputs
+    
+column_names = dataset["train"].column_names
+dataset["train"] = dataset["train"].map(
+                preprocess_function,
+                batched=True,
+                num_proc=4,
+                remove_columns=column_names
+            )
+dataset["validation"] = dataset["validation"].map(
+                preprocess_function,
+                batched=True,
+                num_proc=4,
+                remove_columns=column_names
+            )
+dataset["test"] = dataset["test"].map(
+                preprocess_function,
+                batched=True,
+                num_proc=4,
+                remove_columns=column_names
+            )
+
+data_collator = DataCollatorForSeq2Seq(
+            tokenizer,
+            model=model,
+            label_pad_token_id=-100,
+        )
+
+print(dataset["train"])
+
+train_dataloader = DataLoader(dataset["train"], batch_size=args.batch_size, collate_fn=data_collator, num_workers=4, shuffle=True)
+val_dataloader = DataLoader(dataset["validation"], batch_size=args.batch_size, collate_fn=data_collator, num_workers=4)
+test_dataloader = DataLoader(dataset["test"], batch_size=args.batch_size, collate_fn=data_collator, num_workers=4,)
+    
+    
 
 
 if not args.no_add_linear:
@@ -159,6 +216,8 @@ if not args.dev:
     wandb.config.update(args)
 
 optimizer = AdamW(model.parameters(), lr=args.learning_rate, betas=[args.beta1,args.beta2], weight_decay=args.weight_decay, eps=args.eps)
+optimizer = Adafactor(model.parameters(), lr=args.learning_rate, relative_step=False, warmup_init=False)
+
 # scheduler = get_scheduler("linear", optimizer, args.warmup_steps, len(train_dataloader)* args.epoch)
 
 for name, param in model.named_parameters():
@@ -173,7 +232,7 @@ def evaluate(steps):
     for name, param in model.named_parameters():
         if "added" in name:
             print(name, param)
-            break
+            break 
 
     model.eval()
     losses = []
@@ -181,11 +240,11 @@ def evaluate(steps):
     best_test_score = 0
     
     with torch.no_grad():
-        for batches, untok_data in tqdm(test_dataloader):
+        for batches in tqdm(test_dataloader):
             for idx in batches.keys():
                 batches[idx] = batches[idx].to(device)
                 
-            out = model.generate(**batches, num_beams=4)
+            out = model.generate(**batches, num_beams=4, max_new_tokens=300)
             decode_pred = tokenizer.batch_decode(out, skip_special_tokens=True)
             
             labels = batches["labels"]
@@ -197,6 +256,10 @@ def evaluate(steps):
                 labels = [i.strip() for i in labels]
             elif "wmt" in task:
                 labels = [[i.strip()] for i in labels]
+            
+            # for i, j in zip(decode_pred, labels):
+            #     print(i,j)    
+            
             metric.add_batch(predictions=decode_pred, references=labels)
             
         final_score = metric.compute()
@@ -243,7 +306,7 @@ for E in range(1, args.epoch+1):
     
     losses = []
     dl = tqdm(train_dataloader)
-    for batches, _ in dl:
+    for batches in dl:
 
         for idx in batches.keys():
             batches[idx] = batches[idx].to(device)
