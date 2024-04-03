@@ -113,7 +113,7 @@ def parse_args():
         "--cifar_eval_step", type=int, default=500
     )
     parser.add_argument(
-        "--imagenet_eval_step", type=int, default=10000
+        "--imagenet_eval_step", type=int, default=50000
     )
 
     
