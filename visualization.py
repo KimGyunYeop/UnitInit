@@ -96,10 +96,14 @@ for r in runs:
                 result_dfs[r.config[list(task[0].keys())[0]]].loc[i+"__"+row_name, col_name] = j["max"]
 
 #=======================================================================================================================================
+if glue_keywords["glue_task"]=='cola':
+    metric_name="mcc"
+elif glue_keywords["glue_task"]=='mrpc':
+    metric_name="acc"
 
 def make_he_plot(check_case, baseline_check_case):
-    df = pd.DataFrame({'bottom': [0 for i in range(24)],
-            'top': [0 for i in range(24)]})
+    df = pd.DataFrame({'bottom-k': [0 for i in range(24)],
+            'top-k': [0 for i in range(24)]})
         
     for i, j in result_dfs.items():
         j = j.sort_index()
@@ -124,13 +128,13 @@ def make_he_plot(check_case, baseline_check_case):
                         layer_type=name[:3]
                     else: 
                         continue
-                    df.loc[layer_num, layer_type]= j.loc[k,'max_value']
+                    df.loc[layer_num, layer_type+"-k"]= j.loc[k,'max_value']
             
             if (all(x in case_name for x in baseline_check_case)):
-                df.loc[0, "bottom"]= j.loc[k,'max_value']
-                df.loc[0, "top"]= j.loc[k,'max_value']
+                df.loc[0, "bottom-k"]= j.loc[k,'max_value']
+                df.loc[0, "top-k"]= j.loc[k,'max_value']
 
-    he_plot=sns.lineplot(data=df[['bottom', 'top']]).set(title=glue_keywords["glue_task"])
+    he_plot=sns.lineplot(data=df[['bottom-k', 'top-k']]).set(title=glue_keywords["glue_task"],xlabel="k",ylabel=metric_name)
     plt.savefig("./figures/"+glue_keywords["glue_task"]+"_he_plot.png") 
     plt.clf()
 
@@ -175,7 +179,7 @@ def make_proposed_plot(proposed_check_case, he_check_case, baseline_check_case):
                 df.loc[0, 'proposed']= j.loc[k,'max_value']
                 df.loc[0, 'w/o proposed']= j.loc[k,'max_value']
 
-    proposed_plot=sns.lineplot(data=df[['proposed', 'w/o proposed']]).set(title=glue_keywords["glue_task"])
+    proposed_plot=sns.lineplot(data=df[['proposed', 'w/o proposed']]).set(title=glue_keywords["glue_task"],xlabel="k",ylabel=metric_name)
     plt.savefig("./figures/"+glue_keywords["glue_task"]+"_proposed_plot.png") 
     plt.clf()
 
