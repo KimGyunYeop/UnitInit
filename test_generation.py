@@ -44,14 +44,14 @@ runs = api.runs(path="isnlp_lab/unit_init_generation")
 
 task = args.generation_task
 
-# print("{}_{}".format(args.result_path, task))
-# print("check duplicate")
-# for r in runs:
-#     if r.state == "crashed" or r.state == "failed":
-#         continue
+print("{}_{}".format(args.result_path, task))
+print("check duplicate")
+for r in runs:
+    if r.state == "crashed" or r.state == "failed" or r.state == "killed":
+        continue
     
-#     if r.name == "{}_{}".format(args.result_path, task):
-#         raise "duplicate experiment"
+    if r.name == "{}_{}".format(args.result_path, task):
+        raise "duplicate experiment"
 
 
 model_utils = MODEL_LIST[model_type]
@@ -65,11 +65,11 @@ if task == "cnndm":
     dataset = load_dataset("cnn_dailymail", "3.0.0" , cache_dir=server_env.data_path)
     metric = load_metric('rouge' , cache_dir=server_env.data_path)
 elif task == "wmt_en_ro":
-    dataset = load_dataset("wmt16", "ro_en" , cache_dir=server_env.data_path)
-    metric = load_metric('bleu' , cache_dir=server_env.data_path)
+    dataset = load_dataset("wmt16", "ro-en" , cache_dir=server_env.data_path)
+    metric = load_metric('sacrebleu' , cache_dir=server_env.data_path)
 print(dataset)
 
-tmp_matric = metric.compute(predictions=["hello there", "general kenobi"], references=["hello there", "general kenobi"])
+tmp_matric = metric.compute(predictions=["hello there general kenobi", "on our way to ankh morpork"], references=[["hello there general kenobi"], ["goodbye ankh morpork"]])
 print(tmp_matric)
     
 tokenizer = model_utils["tokenizer"].from_pretrained(model_utils["model_load_path"])
@@ -93,12 +93,12 @@ def custom_collate_fn(batches):
     tokenized_labels = tokenizer(
         labels, truncation=True, max_length=tokenizer.model_max_length, return_tensors="pt", padding=True
     )
-    
+
     tokenized_labels["input_ids"].masked_fill_(tokenized_labels["input_ids"] == pad_token_id, -100)
     tokenized_inputs["labels"] = tokenized_labels["input_ids"]
     # tokenized_inputs["decoder_attention_mask"] = tokenized_labels["attention_mask"]
     
-    return tokenized_inputs
+    return tokenized_inputs, (sentences, labels) 
 
 
 train_dataloader = DataLoader(dataset["train"], batch_size=args.batch_size, collate_fn=custom_collate_fn, num_workers=4, shuffle=True)
@@ -144,10 +144,11 @@ if args.adapter:
 
 model.to(device)
 print(model)
+print(args)
 
 args.model_config = model.config
 if not args.dev:
-    wandb.init(project="unit_init_glue", entity="isnlp_lab",name="{}_{}".format(args.result_path, task), reinit=True)
+    wandb.init(project="unit_init_generation", entity="isnlp_lab",name="{}_{}".format(args.result_path, task), reinit=True)
     for i,_ in tmp_matric.items():
         wandb.define_metric("{}_dev_{}".format(task,i), summary="max")
         wandb.define_metric("{}_test_{}".format(task,i), summary="max")
@@ -164,19 +165,71 @@ for name, param in model.named_parameters():
         break
 
 
+def evaluate(steps):
+    val_steps = 1
+
+    
+    for name, param in model.named_parameters():
+        if "added" in name:
+            print(name, param)
+            break
+
+    model.eval()
+    losses = []
+    best_dev_score = 0
+    best_test_score = 0
+    with torch.no_grad():
+        for batches, untok_data in tqdm(test_dataloader):
+            for idx in batches.keys():
+                batches[idx] = batches[idx].to(device)
+                
+            out = model.generate(**batches, num_beams=4)
+            decode_pred = tokenizer.batch_decode(out, skip_special_tokens=True)
+            metric.add_batch(predictions=decode_pred, references=untok_data[-1])
+            if val_steps % 100 == 0:
+                break
+            val_steps += 1
+            
+        final_score = metric.compute(use_aggregator=True)
+
+        print("dev")
+        print(final_score)
+        if task == "cnndm":
+            rouge_1 = final_score["rouge1"].mid.fmeasure
+            rouge_2 = final_score["rouge2"].mid.fmeasure
+            rouge_L = final_score["rougeL"].mid.fmeasure
+        
+            change_score_name = dict()
+            for i,j in final_score.items():
+                change_score_name["cnndm_test_rouge1"] = rouge_1
+                change_score_name["cnndm_test_rouge2"] = rouge_2
+                change_score_name["cnndm_test_rougeL"] = rouge_L
+
+        elif "wmt" in task:
+            pass
+
+    change_score_name["steps"] = steps
+    
+    if not args.dev:
+        wandb.log(change_score_name)
+    
+    model.train()
+
+
+steps = 1
 for E in range(1, args.epoch+1):
     model.train()
     
     losses = []
     dl = tqdm(train_dataloader)
-    for batches in dl:
+    for batches, _ in dl:
+        steps += 1
+
         for idx in batches.keys():
             batches[idx] = batches[idx].to(device)
-        
+
         out = model(**batches)
-        print(out)
-        print(out.loss)
-        assert 0
+
         out.loss.backward()
         losses.append(out.loss.item())
         
@@ -187,41 +240,13 @@ for E in range(1, args.epoch+1):
         optimizer.zero_grad()
         scheduler.step()
         dl.set_description("loss="+str(out.loss.item()))
+        if steps % args.logging_step == 0:
+            evaluate(steps)
+            
 
     print("train_loss = {}".format(sum(losses)/len(losses)))
-    
-    model.eval()
-    losses = []
-    best_dev_score = 0
-    best_test_score = 0
-    with torch.no_grad():
-        for batches in tqdm(val_dataloader):
-            for idx in batches.keys():
-                batches[idx] = batches[idx].to(device)
-                
-            out = model(**batches)
-            
-            losses.append(out.loss.item())
-            if num_labels == 1:
-                metric.add_batch(predictions=out.logits, references=batches["labels"])
-            else:   
-                metric.add_batch(predictions=torch.argmax(out.logits, dim=-1), references=batches["labels"])
-            
-        final_score = metric.compute()
 
-        print("dev_loss = {}".format(sum(losses)/len(losses)))
-        print("dev", final_score)
-        
-        change_score_name = dict()
-        for i,j in final_score.items():
-            change_score_name["{}_dev_{}".format(task, i)] = j
-        # change_score_name["{}_dev_{}".format(task, "acc")] = sum(pred_list == label_list)/pred_list.size()[0]
-        change_score_name["epoch"] = E+1
 
-    for name, param in model.named_parameters():
-        if "added" in name:
-            print(name, param)
-            break
 
 
         
@@ -244,7 +269,3 @@ for E in range(1, args.epoch+1):
     # for i,j in final_score.items():
     #     change_score_name["{}_test_{}".format(task, i)] = j
     # change_score_name["{}_test_{}".format(task, "acc")] = sum(pred_list == label_list)/pred_list.size()[0]
-    change_score_name["epoch"] = E+1
-    
-    if not args.dev:
-        wandb.log(change_score_name)
