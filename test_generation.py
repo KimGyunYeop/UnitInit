@@ -13,6 +13,7 @@ import os
 import json
 import wandb
 import argparse
+import numpy as np
 
 MODEL_LIST = {
     "t5":{
@@ -91,15 +92,16 @@ def custom_collate_fn(batches):
     )
     
     tokenized_labels = tokenizer(
-        labels, truncation=True, max_length=tokenizer.model_max_length, return_tensors="pt", padding=True
+        text_target=labels, truncation=True, max_length=tokenizer.model_max_length, return_tensors="pt", padding=True
     )
 
-    tokenized_labels["input_ids"].masked_fill_(tokenized_labels["input_ids"] == pad_token_id, -100)
+    # tokenized_labels["input_ids"].masked_fill_(tokenized_labels["input_ids"] == pad_token_id, -100)
     tokenized_inputs["labels"] = tokenized_labels["input_ids"]
     # tokenized_inputs["decoder_attention_mask"] = tokenized_labels["attention_mask"]
     
-    return tokenized_inputs, (sentences, labels) 
+    return tokenized_inputs, [sentences, labels]
 
+accumulation_steps = args.generate_full_batch // args.batch_size
 
 train_dataloader = DataLoader(dataset["train"], batch_size=args.batch_size, collate_fn=custom_collate_fn, num_workers=4, shuffle=True)
 val_dataloader = DataLoader(dataset["validation"], batch_size=args.batch_size, collate_fn=custom_collate_fn, num_workers=4)
@@ -157,7 +159,7 @@ if not args.dev:
     wandb.config.update(args)
 
 optimizer = AdamW(model.parameters(), lr=args.learning_rate, betas=[args.beta1,args.beta2], weight_decay=args.weight_decay, eps=args.eps)
-scheduler = get_scheduler("linear", optimizer, args.warmup_steps, len(train_dataloader)* args.epoch)
+# scheduler = get_scheduler("linear", optimizer, args.warmup_steps, len(train_dataloader)* args.epoch)
 
 for name, param in model.named_parameters():
     if "added" in name:
@@ -166,7 +168,6 @@ for name, param in model.named_parameters():
 
 
 def evaluate(steps):
-    val_steps = 1
 
     
     for name, param in model.named_parameters():
@@ -178,6 +179,7 @@ def evaluate(steps):
     losses = []
     best_dev_score = 0
     best_test_score = 0
+    
     with torch.no_grad():
         for batches, untok_data in tqdm(test_dataloader):
             for idx in batches.keys():
@@ -185,12 +187,19 @@ def evaluate(steps):
                 
             out = model.generate(**batches, num_beams=4)
             decode_pred = tokenizer.batch_decode(out, skip_special_tokens=True)
-            metric.add_batch(predictions=decode_pred, references=untok_data[-1])
-            if val_steps % 100 == 0:
-                break
-            val_steps += 1
             
-        final_score = metric.compute(use_aggregator=True)
+            labels = batches["labels"]
+            labels.masked_fill_(labels == -100, pad_token_id)
+            labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
+            
+            decode_pred = [i.strip() for i in decode_pred]
+            if task == "cnndm":
+                labels = [i.strip() for i in labels]
+            elif "wmt" in task:
+                labels = [[i.strip()] for i in labels]
+            metric.add_batch(predictions=decode_pred, references=labels)
+            
+        final_score = metric.compute()
 
         print("dev")
         print(final_score)
@@ -206,7 +215,19 @@ def evaluate(steps):
                 change_score_name["cnndm_test_rougeL"] = rouge_L
 
         elif "wmt" in task:
-            pass
+            bleu_score = final_score["score"]
+            precision1 = final_score["precisions"][0]
+            precision2 = final_score["precisions"][1]
+            precision3 = final_score["precisions"][2]
+            precision4 = final_score["precisions"][3]
+            
+            change_score_name = dict()
+            for i,j in final_score.items():
+                change_score_name["wmt_en_ro_bleu"] = bleu_score
+                change_score_name["wmt_en_ro_precision1"] = precision1
+                change_score_name["wmt_en_ro_precision2"] = precision2
+                change_score_name["wmt_en_ro_precision3"] = precision3
+                change_score_name["wmt_en_ro_precision4"] = precision4
 
     change_score_name["steps"] = steps
     
@@ -223,7 +244,6 @@ for E in range(1, args.epoch+1):
     losses = []
     dl = tqdm(train_dataloader)
     for batches, _ in dl:
-        steps += 1
 
         for idx in batches.keys():
             batches[idx] = batches[idx].to(device)
@@ -233,15 +253,19 @@ for E in range(1, args.epoch+1):
         out.loss.backward()
         losses.append(out.loss.item())
         
-        if not args.adapter:
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        # if not args.adapter:
+        #     torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         
-        optimizer.step()
-        optimizer.zero_grad()
-        scheduler.step()
+        if steps % accumulation_steps == 0 or steps == len(train_dataloader) - 1:
+                optimizer.step()
+                optimizer.zero_grad()
+                
         dl.set_description("loss="+str(out.loss.item()))
+        
         if steps % args.logging_step == 0:
             evaluate(steps)
+        
+        steps += 1
             
 
     print("train_loss = {}".format(sum(losses)/len(losses)))
