@@ -1,9 +1,13 @@
 import wandb
 import pandas as pd
+import numpy as np
 import os
+import json
+
+pd.set_option('display.max_colwidth', None)
 
 glue_keywords={
-    "glue_task":"stsb",
+    "glue_task":"wnli",
     "model_type":"",
     "add_position":"",
     "act_type":"",
@@ -14,6 +18,17 @@ glue_keywords={
 glue_tunings = {
     "learning_rate":["1.5e-5", "3e-5", "5e-5", "1e-4"],
     "warmup_steps":["50","500"]
+}
+glue_measurement = {
+    "cola" : "dev_mat", 
+    "sst2" : "dev_acc", 
+    "mrpc" : "dev_acc", 
+    "stsb" : "dev_pea", 
+    "qqp" : "dev_acc", 
+    "mnli" : "dev_acc",  
+    "qnli" : "dev_acc", 
+    "rte" : "dev_acc", 
+    "wnli" : "dev_acc"
 }
 glue_columns = []
 for i in glue_tunings["learning_rate"]:
@@ -46,6 +61,76 @@ def check_keywork(config, keywords):
             return False
         
     return True
+
+def grouping_df(model, df):
+    al_list = {
+        "deberta":[20,24],
+        "t5":[10,12]
+    }
+    
+    group_best_score_df = dict()
+    group_best_score = dict()
+
+    for i in df.index:
+            
+        if glue_measurement[task[0]["glue_task"]] not in i:
+            continue   
+
+        if model in i.split("_"):
+
+            if "baseline" in i:
+                group_best_score_df.setdefault("_".join([model, "baseline"]), []).append(i)
+                continue
+
+            
+            tmp = False
+            for al in al_list[model]:
+                if "bottom" in i:
+                    tmp=True
+                    if "bottom"+str(al) in i:
+                        tmp=False
+                        break
+            
+            if "top" in i:
+                continue
+
+            if tmp:
+                print("skip", i)            
+                continue
+ 
+            
+            for ap in ["befdot", "afterffnn", "aftffnn1", "aftffnn2", "both"]:
+                if ap in i.split("_"):
+                    for it in ["unit", "he"]:
+                        if it in i.split("_"):
+                            for at in ["act","noact", "midgelu", "gelu", "relu", "midrelu"]:
+                                if at in i.split("_"):
+                                    if "adapter" in i:
+                                        # group_best_score["_".join([i, ap, it, "adapter"])]
+                                        group_best_score_df.setdefault("_".join([model, ap, it, at, "adapter"]), []).append(i)
+
+                                    else:
+                                        # group_best_score["_".join([i, ap, it])] = i
+                                        group_best_score_df.setdefault("_".join([model, ap, it, at]), []).append(i)
+    
+    for i, j in group_best_score_df.items():
+        tmp_df = df.loc[j,:]
+        
+        print("\n\n",i)
+        print(tmp_df)
+        print(i,"best score : ",str(tmp_df.to_numpy().max()))
+
+        group_best_score[i] = tmp_df.to_numpy().max()
+
+    return(group_best_score)
+                                
+                
+                                
+                            
+                    
+            
+    
+
 
 result_dfs = dict()
 
@@ -102,6 +187,13 @@ for i, j in result_dfs.items():
     print(i)
     print(j)
     print("save file to ",str(os.path.join("tables",i+".xlsx")))
+    
+    deberta_bs = grouping_df("deberta", j)
+    t5_bs = grouping_df("t5", j)
+
+    print(json.dumps(deberta_bs, indent=2))
+    print(json.dumps(t5_bs, indent=2))
+    
     j.to_excel(os.path.join("tables",i+".xlsx"))
         
         
