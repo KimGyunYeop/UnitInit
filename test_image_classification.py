@@ -142,6 +142,20 @@ if not args.no_add_linear:
         model.vit.add_unit_init_after_ffnn(layer_num=args.add_linear_layer, init_type=args.init_type, act_type=args.act_type)
         model.vit.add_unit_init_before_dotpro(layer_num=args.add_linear_layer, head_indi=args.head_indi, init_type=args.init_type, act_type=args.act_type)
     
+
+if args.adapter:
+    for name, param in model.named_parameters():
+        if "added" not in name and "classifi" not in name:
+            param.requires_grad_(requires_grad=False)
+            #param.requires_grad=False
+        else:
+            param.requires_grad_(requires_grad=True)
+    
+    
+    for name, param in model.named_parameters():
+        print(param.requires_grad,"\t/\t",name)
+    
+    
 model.to(device)
 print(model)
 # assert 0
