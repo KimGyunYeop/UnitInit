@@ -13,6 +13,7 @@ import os
 import json
 import wandb
 import argparse
+import numpy as np
 
 MODEL_LIST = {
     "t5":{
@@ -91,14 +92,14 @@ def custom_collate_fn(batches):
     )
     
     tokenized_labels = tokenizer(
-        labels, truncation=True, max_length=tokenizer.model_max_length, return_tensors="pt", padding=True
+        text_target=labels, truncation=True, max_length=tokenizer.model_max_length, return_tensors="pt", padding=True
     )
 
-    tokenized_labels["input_ids"].masked_fill_(tokenized_labels["input_ids"] == pad_token_id, -100)
+    # tokenized_labels["input_ids"].masked_fill_(tokenized_labels["input_ids"] == pad_token_id, -100)
     tokenized_inputs["labels"] = tokenized_labels["input_ids"]
     # tokenized_inputs["decoder_attention_mask"] = tokenized_labels["attention_mask"]
     
-    return tokenized_inputs, (sentences, labels) 
+    return tokenized_inputs, [sentences, labels]
 
 
 train_dataloader = DataLoader(dataset["train"], batch_size=args.batch_size, collate_fn=custom_collate_fn, num_workers=4, shuffle=True)
@@ -185,11 +186,19 @@ def evaluate(steps):
                 
             out = model.generate(**batches, num_beams=4)
             decode_pred = tokenizer.batch_decode(out, skip_special_tokens=True)
-            if "wmt" in task:
-                untok_data[-1] = [[i] for i in untok_data[-1]]
+            
+            labels = batches["labels"]
+            labels.masked_fill_(tokenized_labels["input_ids"] == -100, pad_token_id)
+            labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
+            
+            decode_pred = [i.strip() for i in decode_pred]
+            if task == "cnndm":
+                untok_data[-1] = [i.strip() for i in untok_data[-1]]
+            elif "wmt" in task:
+                untok_data[-1] = [[i.strip()] for i in untok_data[-1]]
             metric.add_batch(predictions=decode_pred, references=untok_data[-1])
             
-        final_score = metric.compute(use_aggregator=True)
+        final_score = metric.compute()
 
         print("dev")
         print(final_score)
@@ -205,7 +214,19 @@ def evaluate(steps):
                 change_score_name["cnndm_test_rougeL"] = rouge_L
 
         elif "wmt" in task:
-            pass
+            bleu_score = final_score["score"]
+            precision1 = final_score["precisions"][0]
+            precision2 = final_score["precisions"][1]
+            precision3 = final_score["precisions"][2]
+            precision4 = final_score["precisions"][3]
+            
+            change_score_name = dict()
+            for i,j in final_score.items():
+                change_score_name["wmt_en_ro_bleu"] = bleu_score
+                change_score_name["wmt_en_ro_precision1"] = precision1
+                change_score_name["wmt_en_ro_precision2"] = precision2
+                change_score_name["wmt_en_ro_precision3"] = precision3
+                change_score_name["wmt_en_ro_precision4"] = precision4
 
     change_score_name["steps"] = steps
     
@@ -239,6 +260,7 @@ for E in range(1, args.epoch+1):
         optimizer.zero_grad()
         scheduler.step()
         dl.set_description("loss="+str(out.loss.item()))
+        
         if steps % args.logging_step == 0:
             evaluate(steps)
             
