@@ -188,15 +188,15 @@ def evaluate(steps):
             decode_pred = tokenizer.batch_decode(out, skip_special_tokens=True)
             
             labels = batches["labels"]
-            labels.masked_fill_(tokenized_labels["input_ids"] == -100, pad_token_id)
+            labels.masked_fill_(labels == -100, pad_token_id)
             labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
             
             decode_pred = [i.strip() for i in decode_pred]
             if task == "cnndm":
-                untok_data[-1] = [i.strip() for i in untok_data[-1]]
+                labels = [i.strip() for i in labels]
             elif "wmt" in task:
-                untok_data[-1] = [[i.strip()] for i in untok_data[-1]]
-            metric.add_batch(predictions=decode_pred, references=untok_data[-1])
+                labels = [[i.strip()] for i in labels]
+            metric.add_batch(predictions=decode_pred, references=labels)
             
         final_score = metric.compute()
 
