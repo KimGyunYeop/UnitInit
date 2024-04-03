@@ -6,6 +6,8 @@ import json
 
 import pandas as pd
 import seaborn as sns
+import matplotlib.pyplot as plt
+
 
 pd.set_option('display.max_colwidth', None)
 
@@ -40,10 +42,8 @@ task = glue
 api = wandb.Api()
 runs = api.runs(path="isnlp_lab/{}".format(project_name))
 
-# print(str(glue_tunings["learning_rate"][0]))
-# print(str(1e-5))
-# print(str(0.0005))
-# quit()
+#=======================================================================================================================================
+
 def check_keywork(config, keywords):
     for i,j in keywords.items():
         if j == "":
@@ -52,85 +52,13 @@ def check_keywork(config, keywords):
             if config[i] != j:
                 return False
         except KeyError:
-            print("---------------ERROR-----------------")
-            print(config)
+            # print("---------------ERROR-----------------")
+            # print(config)
             return False
         
-    return True
-
-def grouping_df(model, df):
-    al_list = {
-        "deberta":[20,24],
-        "t5":[10,12]
-    }
-    
-    group_best_score_df = dict()
-    group_best_score = dict()
-
-    for i in df.index:
-            
-        if glue_measurement[task[0]["glue_task"]] not in i:
-            continue   
-
-        if model in i.split("_"):
-
-            if "baseline" in i:
-                group_best_score_df.setdefault("_".join([model, "baseline"]), []).append(i)
-                continue
-
-            
-            tmp = False
-            for al in al_list[model]:
-                if "bottom" in i:
-                    tmp=True
-                    if "bottom"+str(al) in i:
-                        tmp=False
-                        break
-            
-            if "top" in i:
-                continue
-
-            if tmp:
-                print("skip", i)            
-                continue
- 
-            
-            for ap in ["befdot", "afterffnn", "aftffnn1", "aftffnn2", "both"]:
-                if ap in i.split("_"):
-                    for it in ["unit", "he"]:
-                        if it in i.split("_"):
-                            for at in ["act","noact", "midgelu", "gelu", "relu", "midrelu"]:
-                                if at in i.split("_"):
-                                    if "adapter" in i:
-                                        # group_best_score["_".join([i, ap, it, "adapter"])]
-                                        group_best_score_df.setdefault("_".join([model, ap, it, at, "adapter"]), []).append(i)
-
-                                    else:
-                                        # group_best_score["_".join([i, ap, it])] = i
-                                        group_best_score_df.setdefault("_".join([model, ap, it, at]), []).append(i)
-    
-    for i, j in group_best_score_df.items():
-        tmp_df = df.loc[j,:]
-        
-        print("\n\n",i)
-        print(tmp_df)
-        print(i,"best score : ",str(tmp_df.to_numpy().max()))
-
-        group_best_score[i] = tmp_df.to_numpy().max()
-
-    return(group_best_score)
-                                
-                
-                                
-                            
-                    
-df = pd.DataFrame({'additional_layer_nums': list(range(24)),
-        'bottom': list(range(24)),
-        'top': list(range(24))})
-
-# print(df)
-    
-
+    return True        
+     
+#=======================================================================================================================================
 
 result_dfs = dict()
 
@@ -143,19 +71,11 @@ for r in runs:
         if r.config[list(task[0].keys())[0]] not in result_dfs.keys():
             result_dfs[r.config[list(task[0].keys())[0]]] = pd.DataFrame(columns=task[2])
 
-        
-        # print(r.name)
-        # print(r.summary)
         row_name = r.name.split("_")
-        # print(row_name)
-        # print()
-            
-        
-        
+
         col_name = []
         for i,j in task[1].items():
             for k in j:
-                # print(str(k))
                 try:
                     row_name.remove(str(k))
                     col_name.append(k)
@@ -163,9 +83,7 @@ for r in runs:
                     pass
                 
         row_name = "_".join(row_name)
-        # print(row_name)
         col_name = "_".join(col_name)
-        # print(col_name)
         
         for i, j in r.summary.items():
             if "dev" in i or "test" in i:
@@ -176,72 +94,110 @@ for r in runs:
                     pass
                 
                 result_dfs[r.config[list(task[0].keys())[0]]].loc[i+"__"+row_name, col_name] = j["max"]
+
+#=======================================================================================================================================
+
+def make_he_plot(check_case, baseline_check_case):
+    df = pd.DataFrame({'bottom': [0 for i in range(24)],
+            'top': [0 for i in range(24)]})
         
-        # print(result_dfs[r.config[list(task[0].keys())[0]]])
-        # print(result_dfs[r.config[list(task[0].keys())[0]]].sort_index())
-        
-        # print("\n\n")
-        # break
-
-os.makedirs("tables", exist_ok=True)
-
-print("finished!!!")
-print()
-print()
-
-# assert 0
-
-for i, j in result_dfs.items():
-
-    for k in j.index:
-        row = j.loc[k,:]
-
-        case_name=k.split("_")
-        print(case_name)
-        
-        check_case=['deberta', 'cola', 'befdot', 'he', 'no', 'act']
-        if (all(x in case_name for x in check_case)):
-            for name in case_name:
-                if "bottom" in name:
-                    layer_num=int(name[6:])
-                    layer_type=name[:6]                    
-                elif "top" in name:
-                    layer_num=int(name[3:])
-                    layer_type=name[:3]
-                else: 
-                    continue
-                print(layer_type)
-                print(layer_num)
-                assert 0
-                
-                print(df)
-                df[layer_type][layer_num]= j.max(axis=1)
-
-                
-                assert 0
-            
-            
-        # j = j.sort_index()
+    for i, j in result_dfs.items():
+        j = j.sort_index()
         j['max_value'] = j.max(axis=1)
-        # print("\n\n\n")
-        # print(i)
-        # print(j)
-        # print("save file to ",str(os.path.join("tables",i+".xlsx")))
-        
-        # deberta_bs = grouping_df("deberta", j)
-        # t5_bs = grouping_df("t5", j)
 
-        # print(json.dumps(deberta_bs, indent=2))
-        # print(json.dumps(t5_bs, indent=2))
-        
-        # j.to_excel(os.path.join("tables",i+".xlsx"))
+        for k in j.index:
+            case_name=k.split("_")
+
+            if (all(x in case_name for x in check_case)):
+                for name in case_name:
+                    if "bottom" in name:
+                        if "-" in name: 
+                            layer_num=int(name[7:])
+                        else:
+                            layer_num=int(name[6:])
+                        layer_type=name[:6]
+                    elif "top" in name:
+                        if "-" in name: 
+                            layer_num=int(name[4:])
+                        else:
+                            layer_num=int(name[3:])
+                        layer_type=name[:3]
+                    else: 
+                        continue
+                    df.loc[layer_num, layer_type]= j.loc[k,'max_value']
             
-            
-        
+            if (all(x in case_name for x in baseline_check_case)):
+                df.loc[0, "bottom"]= j.loc[k,'max_value']
+                df.loc[0, "top"]= j.loc[k,'max_value']
 
-        
+    he_plot=sns.lineplot(data=df[['bottom', 'top']])
+    plt.savefig(glue_keywords["glue_task"]+"_he_plot.png") 
+    plt.clf()
 
-he_plot=sns.lineplot(data=df[['bottom', 'top']])
-fig = he_plot.get_figure()
-fig.savefig("out.png") 
-assert 0
+#=======================================================================================================================================
+
+def make_proposed_plot(proposed_check_case, he_check_case, baseline_check_case):
+    df = pd.DataFrame({'proposed': [0 for i in range(24)],
+            'w/o proposed': [0 for i in range(24)]})
+        
+    for i, j in result_dfs.items():
+        j = j.sort_index()
+        j['max_value'] = j.max(axis=1)
+
+        for k in j.index:
+            case_name=k.split("_")
+
+            if (all(x in case_name for x in proposed_check_case)):
+                for name in case_name:
+                    if "bottom" in name:
+                        if "-" in name: 
+                            layer_num=int(name[7:])
+                        else:
+                            layer_num=int(name[6:])
+                        layer_type='proposed'
+                    else: 
+                        continue
+                    df.loc[layer_num, layer_type]= j.loc[k,'max_value']
+
+            elif (all(x in case_name for x in he_check_case)):
+                for name in case_name:
+                    if "bottom" in name:
+                        if "-" in name: 
+                            layer_num=int(name[7:]) 
+                        else:
+                            layer_num=int(name[6:])
+                        layer_type='w/o proposed'
+                    else: 
+                        continue
+                    df.loc[layer_num, layer_type]= j.loc[k,'max_value']
+
+            if (all(x in case_name for x in baseline_check_case)):
+                df.loc[0, 'proposed']= j.loc[k,'max_value']
+                df.loc[0, 'w/o proposed']= j.loc[k,'max_value']
+
+    proposed_plot=sns.lineplot(data=df[['proposed', 'w/o proposed']])
+    plt.savefig(glue_keywords["glue_task"]+"_proposed_plot.png") 
+    plt.clf()
+
+#=======================================================================================================================================
+
+if glue_keywords["glue_task"]=="mrpc":
+    check_case=['dev','deberta', glue_keywords["glue_task"], 'befdot', 'he', 'no', 'act', 'accuracy']
+    baseline_check_case=['dev','deberta', glue_keywords["glue_task"], 'baseline', 'accuracy']
+    make_he_plot(check_case, baseline_check_case)
+
+    proposed_check_case=['dev','deberta', glue_keywords["glue_task"], 'befdot', 'unit', 'midgelu', 'accuracy']
+    he_check_case=['dev','deberta', glue_keywords["glue_task"], 'befdot', 'he', 'no', 'act', 'accuracy']
+    baseline_check_case=['dev','deberta', glue_keywords["glue_task"], 'baseline', 'accuracy']
+    make_proposed_plot(proposed_check_case, he_check_case, baseline_check_case)
+
+elif glue_keywords["glue_task"]=="cola":
+    check_case=['dev','deberta', glue_keywords["glue_task"], 'befdot', 'he', 'no', 'act']
+    baseline_check_case=['dev','deberta', glue_keywords["glue_task"], 'baseline']
+    make_he_plot(check_case, baseline_check_case)
+
+    proposed_check_case=['dev','deberta', glue_keywords["glue_task"], 'befdot', 'unit', 'midgelu']
+    he_check_case=['dev','deberta', glue_keywords["glue_task"], 'befdot', 'he', 'no', 'act']
+    baseline_check_case=['dev','deberta', glue_keywords["glue_task"], 'baseline']
+    make_proposed_plot(proposed_check_case, he_check_case, baseline_check_case)
+
