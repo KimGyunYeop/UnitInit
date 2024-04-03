@@ -4,10 +4,13 @@ import numpy as np
 import os
 import json
 
+import pandas as pd
+import seaborn as sns
+
 pd.set_option('display.max_colwidth', None)
 
 glue_keywords={
-    "glue_task":"wnli",
+    "glue_task":"cola",
     "model_type":"",
     "add_position":"",
     "act_type":"",
@@ -21,14 +24,7 @@ glue_tunings = {
 }
 glue_measurement = {
     "cola" : "dev_mat", 
-    "sst2" : "dev_acc", 
     "mrpc" : "dev_acc", 
-    "stsb" : "dev_pea", 
-    "qqp" : "dev_acc", 
-    "mnli" : "dev_acc",  
-    "qnli" : "dev_acc", 
-    "rte" : "dev_acc", 
-    "wnli" : "dev_acc"
 }
 glue_columns = []
 for i in glue_tunings["learning_rate"]:
@@ -128,7 +124,11 @@ def grouping_df(model, df):
                                 
                             
                     
-            
+df = pd.DataFrame({'additional_layer_nums': list(range(24)),
+        'bottom': list(range(24)),
+        'top': list(range(24))})
+
+# print(df)
     
 
 
@@ -142,13 +142,15 @@ for r in runs:
     if check_keywork(r.config, task[0]):
         if r.config[list(task[0].keys())[0]] not in result_dfs.keys():
             result_dfs[r.config[list(task[0].keys())[0]]] = pd.DataFrame(columns=task[2])
+
         
-        
-        print(r.name)
-        print(r.summary)
+        # print(r.name)
+        # print(r.summary)
         row_name = r.name.split("_")
-        print(row_name)
-        assert 0
+        # print(row_name)
+        # print()
+            
+        
         
         col_name = []
         for i,j in task[1].items():
@@ -161,9 +163,9 @@ for r in runs:
                     pass
                 
         row_name = "_".join(row_name)
-        print(row_name)
+        # print(row_name)
         col_name = "_".join(col_name)
-        print(col_name)
+        # print(col_name)
         
         for i, j in r.summary.items():
             if "dev" in i or "test" in i:
@@ -178,26 +180,68 @@ for r in runs:
         # print(result_dfs[r.config[list(task[0].keys())[0]]])
         # print(result_dfs[r.config[list(task[0].keys())[0]]].sort_index())
         
-        print("\n\n")
+        # print("\n\n")
+        # break
 
 os.makedirs("tables", exist_ok=True)
 
-for i, j in result_dfs.items():
-    j = j.sort_index()
-    j['max_value'] = j.max(axis=1)
-    print("\n\n\n")
-    print(i)
-    print(j)
-    print("save file to ",str(os.path.join("tables",i+".xlsx")))
-    
-    deberta_bs = grouping_df("deberta", j)
-    t5_bs = grouping_df("t5", j)
+print("finished!!!")
+print()
+print()
 
-    print(json.dumps(deberta_bs, indent=2))
-    print(json.dumps(t5_bs, indent=2))
-    
-    j.to_excel(os.path.join("tables",i+".xlsx"))
+# assert 0
+
+for i, j in result_dfs.items():
+
+    for k in j.index:
+        row = j.loc[k,:]
+
+        case_name=k.split("_")
+        print(case_name)
         
+        check_case=['deberta', 'cola', 'befdot', 'he', 'no', 'act']
+        if (all(x in case_name for x in check_case)):
+            for name in case_name:
+                if "bottom" in name:
+                    layer_num=int(name[6:])
+                    layer_type=name[:6]                    
+                elif "top" in name:
+                    layer_num=int(name[3:])
+                    layer_type=name[:3]
+                else: 
+                    continue
+                print(layer_type)
+                print(layer_num)
+                assert 0
+                
+                print(df)
+                df[layer_type][layer_num]= j.max(axis=1)
+
+                
+                assert 0
+            
+            
+        # j = j.sort_index()
+        j['max_value'] = j.max(axis=1)
+        # print("\n\n\n")
+        # print(i)
+        # print(j)
+        # print("save file to ",str(os.path.join("tables",i+".xlsx")))
         
+        # deberta_bs = grouping_df("deberta", j)
+        # t5_bs = grouping_df("t5", j)
+
+        # print(json.dumps(deberta_bs, indent=2))
+        # print(json.dumps(t5_bs, indent=2))
+        
+        # j.to_excel(os.path.join("tables",i+".xlsx"))
+            
             
         
+
+        
+
+he_plot=sns.lineplot(data=df[['bottom', 'top']])
+fig = he_plot.get_figure()
+fig.savefig("out.png") 
+assert 0
