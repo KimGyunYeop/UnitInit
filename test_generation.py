@@ -166,7 +166,6 @@ for name, param in model.named_parameters():
 
 
 def evaluate(steps):
-    val_steps = 1
 
     
     for name, param in model.named_parameters():
@@ -178,6 +177,7 @@ def evaluate(steps):
     losses = []
     best_dev_score = 0
     best_test_score = 0
+    
     with torch.no_grad():
         for batches, untok_data in tqdm(test_dataloader):
             for idx in batches.keys():
@@ -185,10 +185,9 @@ def evaluate(steps):
                 
             out = model.generate(**batches, num_beams=4)
             decode_pred = tokenizer.batch_decode(out, skip_special_tokens=True)
+            if "wmt" in task:
+                untok_data[-1] = [[i] for i in untok_data[-1]]
             metric.add_batch(predictions=decode_pred, references=untok_data[-1])
-            if val_steps % 100 == 0:
-                break
-            val_steps += 1
             
         final_score = metric.compute(use_aggregator=True)
 
