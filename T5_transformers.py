@@ -1823,6 +1823,32 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         self.model_parallel = False
         self.device_map = None
 
+    def add_unit_init_before_dotpro(self, layer_num=None, head_indi=True, init_type="unit", act_type=None):
+        if layer_num is None:
+            layer_num = range(self.config.num_layers)
+        
+        for i in layer_num:
+            self.encoder.block[i].layer[0].SelfAttention.add_unit_init_before_dotpro(head_indi=head_indi, init_type=init_type, act_type=act_type)
+            self.decoder.block[i].layer[0].SelfAttention.add_unit_init_before_dotpro(head_indi=head_indi, init_type=init_type, act_type=act_type)
+            self.decoder.block[i].layer[1].EncDecAttention.add_unit_init_before_dotpro(head_indi=head_indi, init_type=init_type, act_type=act_type)
+
+    
+    def add_unit_init_after_ffnn(self, layer_num=None, init_type="unit", act_type=None):
+        if layer_num is None:
+            layer_num = range(self.config.num_layers)
+        
+        for i in layer_num:
+            self.encoder.block[i].layer[-1].add_unit_init_after_ffnn(init_type=init_type, act_type=act_type)
+            self.decoder.block[i].layer[-1].add_unit_init_after_ffnn(init_type=init_type, act_type=act_type)
+    
+    def add_unit_init_after_ffnn2(self, layer_num=None, init_type="unit", act_type=None):
+        if layer_num is None:
+            layer_num = range(self.config.num_layers)
+        
+        for i in layer_num:
+            self.encoder.block[i].layer[-1].add_unit_init_after_ffnn2(init_type=init_type, act_type=act_type)
+            self.decoder.block[i].layer[-1].add_unit_init_after_ffnn(init_type=init_type, act_type=act_type)
+
     @add_start_docstrings(PARALLELIZE_DOCSTRING)
     def parallelize(self, device_map=None):
         warnings.warn(

@@ -116,6 +116,12 @@ def parse_args():
         "--imagenet_eval_step", type=int, default=10000
     )
 
+    
+    #text_generation
+    parser.add_argument(
+        "--generation_task", type=str, default="mrpc", choices=["cnndm", "wmt"]
+    )
+    
     parser.add_argument(
         "--dev", default=False, action="store_true"
     )
@@ -131,6 +137,56 @@ def tf_make_result_path(args):
             result_path.append(args.task)
         except:
             result_path.append(args.glue_task)
+    
+    if args.for_cv:
+        result_path.append(str(args.learning_rate))
+    
+    if args.no_add_linear:
+        result_path.append("baseline")
+        return "_".join(result_path)
+    
+    result_path.append(args.add_position)
+
+    result_path.append(args.init_type)
+    
+    if args.add_linear_num is not None:
+        if args.add_linear_num > 0:
+            result_path.append("bottom"+str(args.add_linear_num))
+        else:
+            result_path.append("top"+str(args.add_linear_num))
+            
+    if args.add_linear_layer is not None:
+        result_path.append("layer"+str(args.add_linear_layer))
+    
+    if args.head_indi:
+        result_path.append("indi")
+        
+    if args.act_type is None:
+        result_path.append("no_act")
+    else:
+        result_path.append(args.act_type)
+
+        
+    if args.adapter:
+        result_path.append("adapter")
+        
+    if args.dev:
+        result_path.append("dev")
+        
+
+        
+    return '_'.join(result_path)
+
+
+
+def gen_make_result_path(args):
+    result_path = [args.result_path]
+    
+    if args.for_cv==False:
+        try:
+            result_path.append(args.task)
+        except:
+            result_path.append(args.generation_task)
     
     if args.for_cv:
         result_path.append(str(args.learning_rate))
