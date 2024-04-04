@@ -135,7 +135,7 @@ def make_he_plot(check_case, baseline_check_case):
                 df.loc[0, "top-k"]= j.loc[k,'max_value']
 
     he_plot=sns.lineplot(data=df[['bottom-k', 'top-k']]).set(title=glue_keywords["glue_task"],xlabel="k",ylabel=metric_name)
-    plt.savefig("./figures/"+glue_keywords["glue_task"]+"_he_plot.png") 
+    plt.savefig("./figures/"+glue_keywords["glue_task"]+"_he_plot.png", dpi=1000) 
     plt.clf()
 
 #=======================================================================================================================================
@@ -180,7 +180,7 @@ def make_proposed_plot(proposed_check_case, he_check_case, baseline_check_case):
                 df.loc[0, 'w/o proposed']= j.loc[k,'max_value']
 
     proposed_plot=sns.lineplot(data=df[['proposed', 'w/o proposed']]).set(title=glue_keywords["glue_task"],xlabel="k",ylabel=metric_name)
-    plt.savefig("./figures/"+glue_keywords["glue_task"]+"_proposed_plot.png") 
+    plt.savefig("./figures/"+glue_keywords["glue_task"]+"_proposed_plot.png", dpi=1000) 
     plt.clf()
 
 #=======================================================================================================================================
