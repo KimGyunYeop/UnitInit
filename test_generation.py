@@ -342,6 +342,7 @@ for E in range(1, args.epoch+1):
             assert 0
         
         steps += 1
+         
             
 
     print("train_loss = {}".format(sum(losses)/len(losses)))
