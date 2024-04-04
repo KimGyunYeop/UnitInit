@@ -306,6 +306,7 @@ def evaluate(steps):
 
 
 steps = 1
+update_step = 1
 for E in range(1, args.epoch+1):
     model.train()
     
@@ -327,11 +328,18 @@ for E in range(1, args.epoch+1):
         if steps % accumulation_steps == 0 or steps == len(train_dataloader) - 1:
                 optimizer.step()
                 optimizer.zero_grad()
+                update_step += 1
+                
+            
                 
         dl.set_description("loss="+str(out.loss.item()))
         
         if steps % args.logging_step == 0:
             evaluate(steps)
+        
+        
+        if update_step > args.gen_train_step:
+            assert 0
         
         steps += 1
             
