@@ -112,8 +112,18 @@ accumulation_steps = args.generate_full_batch // args.batch_size
 model = model_utils["model"].from_pretrained(model_utils["model_load_path"])
 
 def preprocess_function(examples):
+<<<<<<< HEAD
         inputs = [ex["en"] for ex in examples["translation"]]
         targets = [ex["ro"] for ex in examples["translation"]]
+=======
+        if "wmt" in task:
+            inputs = [ex["en"] for ex in examples["translation"]]
+            targets = [ex["ro"] for ex in examples["translation"]]
+        elif task == "cnndm":
+            inputs = examples["article"]
+            targets = examples["highlights"]
+            
+>>>>>>> 93362ee058fd5521ad3cc9f6824ee7831e9a033f
         # inputs = [prefix + inp for inp in inputs]
         model_inputs = tokenizer(inputs, max_length=tokenizer.model_max_length, padding=False, truncation=True)
 
@@ -165,8 +175,6 @@ train_dataloader = DataLoader(dataset["train"], batch_size=args.batch_size, coll
 val_dataloader = DataLoader(dataset["validation"], batch_size=args.batch_size, collate_fn=data_collator, num_workers=4)
 test_dataloader = DataLoader(dataset["test"], batch_size=args.batch_size, collate_fn=data_collator, num_workers=4,)
     
-    
-
 
 if not args.no_add_linear:
     if args.add_linear_layer is None:
@@ -239,6 +247,10 @@ def evaluate(steps):
     best_dev_score = 0
     best_test_score = 0
     
+<<<<<<< HEAD
+=======
+    
+>>>>>>> 93362ee058fd5521ad3cc9f6824ee7831e9a033f
     with torch.no_grad():
         for batches in tqdm(test_dataloader):
             for idx in batches.keys():
