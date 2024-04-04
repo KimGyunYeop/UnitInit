@@ -256,7 +256,7 @@ def evaluate(steps):
             for idx in batches.keys():
                 batches[idx] = batches[idx].to(device)
                 
-            out = model.generate(**batches, num_beams=4, max_new_tokens=300)
+            out = model.generate(input_ids=batches["input_ids"], attention_mask=batches["attention_mask"], num_beams=4, max_new_tokens=300)
             decode_pred = tokenizer.batch_decode(out, skip_special_tokens=True)
             
             labels = batches["labels"]
