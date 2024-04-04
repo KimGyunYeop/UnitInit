@@ -68,7 +68,7 @@ def parse_args():
         "--eps", type=float, default=1e-6, required=False
     )
     parser.add_argument(
-        "--warmup_steps", type=int, default=50, required=False
+        "--warmup_steps", type=int, default=500, required=False
     )
     
     

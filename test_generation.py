@@ -221,7 +221,7 @@ if not args.dev:
 optimizer = AdamW(model.parameters(), lr=args.learning_rate, betas=[args.beta1,args.beta2], weight_decay=args.weight_decay, eps=args.eps)
 # optimizer = Adafactor(model.parameters(), lr=args.learning_rate, relative_step=False, warmup_init=False)
 
-# scheduler = get_scheduler("linear", optimizer, args.warmup_steps, len(train_dataloader)* args.epoch)
+scheduler = get_scheduler("linear", optimizer, args.warmup_steps, len(train_dataloader)* args.epoch)
 
 for name, param in model.named_parameters():
     if "added" in name:
@@ -328,6 +328,7 @@ for E in range(1, args.epoch+1):
         if steps % accumulation_steps == 0 or steps == len(train_dataloader) - 1:
                 optimizer.step()
                 optimizer.zero_grad()
+                scheduler.step()
                 update_step += 1
                 
             
