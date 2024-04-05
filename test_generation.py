@@ -275,12 +275,14 @@ def evaluate(steps):
             rouge_1 = final_score["rouge1"].mid.fmeasure
             rouge_2 = final_score["rouge2"].mid.fmeasure
             rouge_L = final_score["rougeL"].mid.fmeasure
+            rouge_Lsum = final_score["rougeLsum"].mid.fmeasure
         
             change_score_name = dict()
             for i,j in final_score.items():
                 change_score_name["cnndm_test_rouge1"] = rouge_1
                 change_score_name["cnndm_test_rouge2"] = rouge_2
                 change_score_name["cnndm_test_rougeL"] = rouge_L
+                change_score_name["cnndm_test_rougeLsum"] = rouge_Lsum
 
         elif "wmt" in task:
             bleu_score = final_score["score"]
