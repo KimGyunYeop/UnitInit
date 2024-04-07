@@ -186,6 +186,8 @@ print(model)
 
 args.model_config = model.config
 if not args.dev:
+    save_path='checkpoints/'+args.result_path+"_"+task
+    os.makedirs(save_path,exist_ok=True)
     wandb.init(project="unit_init_glue", entity="isnlp_lab",name="{}_{}".format(args.result_path, task), reinit=True)
     for i,_ in tmp_matric.items():
         wandb.define_metric("{}_dev_{}".format(task,i), summary="max")
@@ -283,6 +285,9 @@ for E in range(1, args.epoch+1):
     #     change_score_name["{}_test_{}".format(task, i)] = j
     # change_score_name["{}_test_{}".format(task, "acc")] = sum(pred_list == label_list)/pred_list.size()[0]
     change_score_name["epoch"] = E+1
+    
+    model_name="model_"+str(E)+".pt"
+    torch.save(model.state_dict(), os.path.join(save_path, model_name))
     
     if not args.dev:
         wandb.log(change_score_name)

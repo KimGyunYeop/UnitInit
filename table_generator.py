@@ -7,7 +7,7 @@ import json
 pd.set_option('display.max_colwidth', None)
 
 glue_keywords={
-    "glue_task":"cola",
+    "glue_task":"qnli",
     "model_type":"",
     "add_position":"",
     "act_type":"",
