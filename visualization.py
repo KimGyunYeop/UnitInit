@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 pd.set_option('display.max_colwidth', None)
 
 glue_keywords={
-    "glue_task":"mrpc",
+    "glue_task":"cola",
     "model_type":"",
     "add_position":"",
     "act_type":"",
@@ -102,8 +102,8 @@ elif glue_keywords["glue_task"]=='mrpc':
     metric_name="acc"
 
 def make_he_plot(check_case, baseline_check_case):
-    df = pd.DataFrame({'bottom-k': [0 for i in range(24)],
-            'top-k': [0 for i in range(24)]})
+    df = pd.DataFrame({'bottom-k': [-0.1 for i in range(24)],
+            'top-k': [-0.1 for i in range(24)]})
         
     for i, j in result_dfs.items():
         j = j.sort_index()
@@ -134,6 +134,7 @@ def make_he_plot(check_case, baseline_check_case):
                 df.loc[0, "bottom-k"]= j.loc[k,'max_value']
                 df.loc[0, "top-k"]= j.loc[k,'max_value']
 
+    print(df)
     he_plot=sns.lineplot(data=df[['bottom-k', 'top-k']]).set(title=glue_keywords["glue_task"],xlabel="k",ylabel=metric_name)
     plt.savefig("./figures/"+glue_keywords["glue_task"]+"_he_plot.png", dpi=1000) 
     plt.clf()
@@ -141,8 +142,8 @@ def make_he_plot(check_case, baseline_check_case):
 #=======================================================================================================================================
 
 def make_proposed_plot(proposed_check_case, he_check_case, baseline_check_case):
-    df = pd.DataFrame({'proposed': [0 for i in range(24)],
-            'w/o proposed': [0 for i in range(24)]})
+    df = pd.DataFrame({'proposed': [-0.1 for i in range(24)],
+            'w/o proposed': [-0.1 for i in range(24)]})
         
     for i, j in result_dfs.items():
         j = j.sort_index()
@@ -179,6 +180,7 @@ def make_proposed_plot(proposed_check_case, he_check_case, baseline_check_case):
                 df.loc[0, 'proposed']= j.loc[k,'max_value']
                 df.loc[0, 'w/o proposed']= j.loc[k,'max_value']
 
+    print(df)
     proposed_plot=sns.lineplot(data=df[['proposed', 'w/o proposed']]).set(title=glue_keywords["glue_task"],xlabel="k",ylabel=metric_name)
     plt.savefig("./figures/"+glue_keywords["glue_task"]+"_proposed_plot.png", dpi=1000) 
     plt.clf()
