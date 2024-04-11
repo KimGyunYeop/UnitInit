@@ -15,6 +15,8 @@ import wandb
 import argparse
 import numpy as np
 
+import nltk
+
 MODEL_LIST = {
     "t5":{
         "tokenizer" : T5Tokenizer,
@@ -24,6 +26,10 @@ MODEL_LIST = {
     }
 }
 
+try:
+    nltk.data.find("tokenizers/punkt")
+except (LookupError, OSError):
+    nltk.download("punkt", quiet=True)
 
 args = parse_args()
 seed_fix(args.seed)
@@ -259,6 +265,10 @@ def evaluate(steps):
             decode_pred = [i.strip() for i in decode_pred]
             if task == "cnndm":
                 labels = [i.strip() for i in labels]
+                
+                decode_pred = ["\n".join(nltk.sent_tokenize(pred)) for pred in decode_pred]
+                labels = ["\n".join(nltk.sent_tokenize(label)) for label in labels]
+                
             elif "wmt" in task:
                 labels = [[i.strip()] for i in labels]
             
@@ -267,7 +277,7 @@ def evaluate(steps):
             
             metric.add_batch(predictions=decode_pred, references=labels)
             
-        final_score = metric.compute()
+        final_score = metric.compute(use_stemmer=True)
 
         print("dev")
         print(final_score)
