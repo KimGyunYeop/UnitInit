@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 pd.set_option('display.max_colwidth', None)
 
 glue_keywords={
-    "glue_task":"cola",
+    "glue_task":"mrpc",
     "model_type":"",
     "add_position":"",
     "act_type":"",
@@ -114,13 +114,13 @@ def make_he_plot(check_case, baseline_check_case):
 
             if (all(x in case_name for x in check_case)):
                 for name in case_name:
-                    if "bottom" in name:
+                    if "bottom" in k:
                         if "-" in name: 
                             layer_num=int(name[7:])
                         else:
                             layer_num=int(name[6:])
                         layer_type=name[:6]
-                    elif "top" in name:
+                    elif "top" in k:
                         if "-" in name: 
                             layer_num=int(name[4:])
                         else:
