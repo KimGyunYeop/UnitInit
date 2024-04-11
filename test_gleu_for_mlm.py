@@ -1,5 +1,5 @@
 from datasets import load_dataset, load_metric
-from transformers import AdamW, get_scheduler, DebertaV2Tokenizer, T5Tokenizer
+from transformers import AdamW, get_scheduler, DebertaV2Tokenizer, T5Tokenizer, Adafactor, DataCollatorForWholeWordMask, DataCollatorForLanguageModeling, DataCollatorWithPadding
 
 from Debertav2_transformers import DebertaV2ForMaskedLM, DebertaV2Config, DebertaV2ForSequenceClassification
 from T5_transformers import T5ForSequenceClassification, T5Config
@@ -18,15 +18,9 @@ import argparse
 MODEL_LIST = {
     "deberta":{
         "tokenizer" : DebertaV2Tokenizer,
-        "model" : DebertaV2ForSequenceClassification,
+        "model" : DebertaV2ForMaskedLM,
         "config" : DebertaV2Config,
         "model_load_path" : "microsoft/deberta-v3-large"
-    },
-    "t5":{
-        "tokenizer" : T5Tokenizer,
-        "model" : T5ForSequenceClassification,
-        "config" : T5Config,
-        "model_load_path" : "google-t5/t5-base"
     }
 }
 
@@ -59,7 +53,7 @@ args.result_path = tf_make_result_path(args)
 
 api = wandb.Api()
 
-runs = api.runs(path="isnlp_lab/unit_init_glue")
+runs = api.runs(path="isnlp_lab/unit_init_glue_mlm")
 
 task = args.glue_task
 if task == "rte":
@@ -67,12 +61,12 @@ if task == "rte":
 
 print("{}_{}".format(args.result_path, task))
 print("check duplicate")
-for r in runs:
-    if r.state == "crashed" or r.state == "failed":
-        continue
+# for r in runs:
+#     if r.state == "crashed" or r.state == "failed":
+#         continue
     
-    if r.name == "{}_{}".format(args.result_path, task):
-        raise "duplicate experiment"
+#     if r.name == "{}_{}".format(args.result_path, task):
+#         raise "duplicate experiment"
 
 
 model_utils = MODEL_LIST[model_type]
@@ -93,45 +87,56 @@ tmp_matric = metric.compute(predictions=torch.Tensor([0,1]), references=torch.Te
 tokenizer = model_utils["tokenizer"].from_pretrained(model_utils["model_load_path"])
 
 
-def custom_collate_fn(batches):
+def custom_collate_fn_for_train(batches):
+    # assert 0
     sentence1_key, sentence2_key = task_to_keys[task]
     if sentence2_key is None:
-        texts = [batch[sentence1_key] for batch in batches]
+        texts = batches[sentence1_key]
     else:
-        texts = [batch[sentence1_key] + "\n" + batch[sentence2_key] for batch in batches]
+        texts = batches[sentence1_key] + "\n" + batches[sentence2_key]
     
-    # texts = [batch['sentence'] for batch in batches]
-    labels = [batch['label'] for batch in batches]
+    # inputs = [prefix + inp for inp in inputs]
+    model_inputs = tokenizer(texts, max_length=tokenizer.model_max_length, padding=False, truncation=True, return_special_tokens_mask=True)
+
+    return model_inputs
+
+data_collator_mlm = DataCollatorForLanguageModeling(tokenizer)
+data_collator_pad = DataCollatorWithPadding(tokenizer)
+def custom_collate_fn_for_valid(batches):
+    sentence1_key, sentence2_key = task_to_keys[task]
+    if sentence2_key is None:
+        texts = batches[sentence1_key]
+    else:
+        texts = batches[sentence1_key] + "\n" + batches[sentence2_key]
     
+    # inputs = [prefix + inp for inp in inputs]
+    model_inputs = tokenizer(texts, max_length=tokenizer.model_max_length, padding=False, truncation=True, return_special_tokens_mask=True, return_tensors="pt")
     
-    tokenized_inputs = tokenizer(
-    texts, truncation=True, max_length=tokenizer.model_max_length, return_tensors="pt", padding=True
-    )
-    
-    tokenized_inputs["labels"] = torch.LongTensor(labels)
-    
-    if task == "stsb":
-        tokenized_inputs["labels"] = torch.FloatTensor(labels)
-        
-    
-    return tokenized_inputs
+    model_inputs["input_ids"], model_inputs["labels"] = data_collator_mlm.torch_mask_tokens(model_inputs["input_ids"], model_inputs["special_tokens_mask"])
+    # print(model_inputs)
+
+    return model_inputs
 
 
-train_dataloader = DataLoader(dataset["train"], batch_size=args.batch_size, collate_fn=custom_collate_fn, num_workers=4, shuffle=True)
+column_names = dataset["train"].column_names
+dataset["train"] = dataset["train"].map(
+                custom_collate_fn_for_train,
+                # batched=True,
+                num_proc=1,
+                remove_columns=column_names
+            )
+print(dataset["train"])
+dataset["validation"] = dataset["validation"].map(
+                custom_collate_fn_for_train,
+                # batched=True,
+                num_proc=1,
+                remove_columns=column_names
+            )
+print(dataset["validation"])
 
-if "mnli" in args.glue_task:
-    val_dataloader = DataLoader(dataset["test_matched"], batch_size=args.batch_size, collate_fn=custom_collate_fn, num_workers=4,)
-    test_dataloader = DataLoader(dataset["test_mismatched"], batch_size=args.batch_size, collate_fn=custom_collate_fn, num_workers=4,)
-    
-else:
-    try:
-        val_dataloader = DataLoader(dataset["validation"], batch_size=args.batch_size, collate_fn=custom_collate_fn, num_workers=4,)
-    except:
-        val_dataloader = DataLoader(dataset["test"], batch_size=args.batch_size, collate_fn=custom_collate_fn, num_workers=4,)
-    test_dataloader = DataLoader(dataset["test"], batch_size=args.batch_size, collate_fn=custom_collate_fn, num_workers=4,)
-    
-if "wnli" in args.glue_task or "qqp" in args.glue_task:
-    test_dataloader = DataLoader(dataset["validation"], batch_size=args.batch_size, collate_fn=custom_collate_fn, num_workers=4,)
+train_dataloader = DataLoader(dataset["train"], batch_size=args.batch_size, collate_fn=data_collator_mlm, num_workers=4, shuffle=True)
+val_dataloader = DataLoader(dataset["validation"], batch_size=args.batch_size, collate_fn=data_collator_mlm, num_workers=4, shuffle=False)
+
 
 model = model_utils["model"].from_pretrained(model_utils["model_load_path"], num_labels=num_labels)
 
@@ -188,15 +193,15 @@ args.model_config = model.config
 if not args.dev:
     save_path='checkpoints/'+args.result_path+"_"+task
     os.makedirs(save_path,exist_ok=True)
-    wandb.init(project="unit_init_glue", entity="isnlp_lab",name="{}_{}".format(args.result_path, task), reinit=True)
+    wandb.init(project="unit_init_glue_mlm", entity="isnlp_lab",name="{}_{}".format(args.result_path, task), reinit=True)
     for i,_ in tmp_matric.items():
-        wandb.define_metric("{}_dev_{}".format(task,i), summary="max")
-        wandb.define_metric("{}_test_{}".format(task,i), summary="max")
-    wandb.define_metric("{}_dev_{}".format(task,"acc"), summary="max")
-    wandb.define_metric("{}_test_{}".format(task,"acc"), summary="max")
+        wandb.define_metric("{}_dev_acc".format(task), summary="max")
+    wandb.define_metric("{}_dev_loss".format(task), summary="min")
+    wandb.define_metric("{}_train_loss".format(task), summary="min")
     wandb.config.update(args)
 
 optimizer = AdamW(model.parameters(), lr=args.learning_rate, betas=[args.beta1,args.beta2], weight_decay=args.weight_decay, eps=args.eps)
+# optimizer = Adafactor(model.parameters(), lr=args.learning_rate, relative_step=False, warmup_init=False)
 scheduler = get_scheduler("linear", optimizer, args.warmup_steps, len(train_dataloader)* args.epoch)
 
 
@@ -230,8 +235,12 @@ for E in range(1, args.epoch+1):
 
     print("train_loss = {}".format(sum(losses)/len(losses)))
     
+    change_score_name = dict()
+    change_score_name["{}_train_loss".format(task)] = sum(losses)/len(losses)
+
     model.eval()
     losses = []
+    accs = []
     best_dev_score = 0
     best_test_score = 0
     with torch.no_grad():
@@ -240,21 +249,22 @@ for E in range(1, args.epoch+1):
                 batches[idx] = batches[idx].to(device)
                 
             out = model(**batches)
-            
+
+            pred = torch.argmax(out.logits, dim=-1).view(-1)
+            label = batches["labels"].view(-1)
+
+            acc = sum(pred == label) / (len(label) - sum(-100 == label))
+            accs.append(acc.item())
+
             losses.append(out.loss.item())
-            if num_labels == 1:
-                metric.add_batch(predictions=out.logits, references=batches["labels"])
-            else:   
-                metric.add_batch(predictions=torch.argmax(out.logits, dim=-1), references=batches["labels"])
-            
-        final_score = metric.compute()
 
         print("dev_loss = {}".format(sum(losses)/len(losses)))
-        print("dev", final_score)
+
+        print("dev_acc = {}".format(sum(accs)/len(accs)))
         
-        change_score_name = dict()
-        for i,j in final_score.items():
-            change_score_name["{}_dev_{}".format(task, i)] = j
+        change_score_name["{}_dev_loss".format(task)] = sum(losses)/len(losses)
+        change_score_name["{}_dev_acc".format(task)] = sum(accs)/len(accs)
+
         # change_score_name["{}_dev_{}".format(task, "acc")] = sum(pred_list == label_list)/pred_list.size()[0]
         change_score_name["epoch"] = E+1
 
@@ -263,31 +273,10 @@ for E in range(1, args.epoch+1):
             print(name, param)
             break
 
-
-        
-    #     for batches in tqdm(test_dataloader):
-    #         for idx in batches.keys():
-    #             batches[idx] = batches[idx].to(device)
-            
-    #         out = model(**batches)
-
-    #         # losses.append(out.loss.item())
-    #         if num_labels == 1:
-    #             metric.add_batch(predictions=out.logits, references=batches["labels"])
-    #         else:   
-    #             metric.add_batch(predictions=torch.argmax(out.logits, dim=-1), references=batches["labels"])
-            
-    #     final_score = metric.compute()
-    
-    
-    # print("test", final_score)
-    # for i,j in final_score.items():
-    #     change_score_name["{}_test_{}".format(task, i)] = j
-    # change_score_name["{}_test_{}".format(task, "acc")] = sum(pred_list == label_list)/pred_list.size()[0]
     change_score_name["epoch"] = E+1
     
-    model_name="model_"+str(E)+".pt"
-    torch.save(model.state_dict(), os.path.join(save_path, model_name))
+    # model_name="model_"+str(E)+".pt"
+    # torch.save(model.state_dict(), os.path.join(save_path, model_name))
     
     if not args.dev:
         wandb.log(change_score_name)
